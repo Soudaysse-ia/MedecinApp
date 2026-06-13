@@ -6,6 +6,9 @@ import PatientDetail from './pages/PatientDetail.jsx';
 import PatientForm from './pages/PatientForm.jsx';
 import Medications from './pages/Medications.jsx';
 import Search from './pages/Search.jsx';
+import Agenda from './pages/Agenda.jsx';
+import Templates from './pages/Templates.jsx';
+import Audit from './pages/Audit.jsx';
 import PatientPortal from './pages/PatientPortal.jsx';
 
 function Sidebar() {
@@ -17,8 +20,11 @@ function Sidebar() {
       <div className="brand">🩺 Carnet Médical<small>Prototype — données fictives</small></div>
       {isStaff && <>
         <NavLink to="/patients">Patients</NavLink>
+        <NavLink to="/agenda">Agenda</NavLink>
         <NavLink to="/recherche">Recherche & filtres</NavLink>
         <NavLink to="/medicaments">Médicaments</NavLink>
+        <NavLink to="/modeles">Modèles</NavLink>
+        {user.role === 'medecin' && <NavLink to="/journal">Journal d'audit</NavLink>}
       </>}
       {user.role === 'patient' && <NavLink to="/mon-dossier">Mon dossier</NavLink>}
       <div className="spacer" />
@@ -63,6 +69,9 @@ export default function App() {
           <Route path="/patients/:id/modifier" element={<PatientForm />} />
           <Route path="/recherche" element={<Search />} />
           <Route path="/medicaments" element={<Medications />} />
+          <Route path="/agenda" element={<Agenda />} />
+          <Route path="/modeles" element={<Templates />} />
+          {user.role === 'medecin' && <Route path="/journal" element={<Audit />} />}
         </>}
         {user.role === 'patient' && <Route path="/mon-dossier" element={<PatientPortal />} />}
         <Route path="*" element={<Navigate to={home} replace />} />

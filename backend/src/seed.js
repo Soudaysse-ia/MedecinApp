@@ -114,6 +114,33 @@ insertVital.run(p2, '2026-05-15', 67.0, 165, '118/76', 36.7, 1.62, 'medecin');
 insertVital.run(p2, '2026-06-08', 66.5, 165, '119/77', 36.6, 1.38, 'medecin');
 insertVital.run(p2, '2026-06-11', null, null, null, null, 1.30, 'patient'); // saisie domicile
 
+// --- Rendez-vous ---
+const insertAppt = db.prepare(`
+  INSERT INTO appointments (patient_id, doctor_id, date, motif, statut, cree_par)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+const soon = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 16); // dans 24h
+insertAppt.run(p1, doctorId, soon, 'Controle tension', 'confirme', 'medecin');
+insertAppt.run(p2, doctorId, '2026-06-25T10:30', 'Suivi diabete', 'confirme', 'secretaire');
+insertAppt.run(p1, doctorId, '2026-07-02T09:00', 'Renouvellement ordonnance', 'demande', 'patient'); // demande a confirmer
+
+// --- Vaccinations ---
+const insertVac = db.prepare('INSERT INTO vaccinations (patient_id, vaccin, date, rappel_prevu, notes) VALUES (?, ?, ?, ?, ?)');
+insertVac.run(p1, 'Tetanos (dTP)', '2020-03-15', '2030-03-15', 'Rappel decennal');
+insertVac.run(p1, 'Grippe saisonniere', '2025-10-12', '2026-10-01', null);
+insertVac.run(p2, 'Hepatite B', '2018-06-01', null, 'Schema complet');
+
+// --- Document joint (petit PDF fictif encode en base64) ---
+const fakePdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF').toString('base64');
+db.prepare('INSERT INTO documents (patient_id, type, filename, mime, data, date) VALUES (?, ?, ?, ?, ?, ?)')
+  .run(p1, 'analyse', 'bilan-sanguin-2026-05.pdf', 'application/pdf', fakePdf, '2026-05-18');
+
+// --- Modele de consultation ---
+db.prepare('INSERT INTO consultation_templates (doctor_id, nom, motif, contenu) VALUES (?, ?, ?, ?)')
+  .run(doctorId, 'Controle HTA', 'Controle tension', 'TA mesuree : __/__\nObservance traitement : oui/non\nEffets indesirables : \nConduite a tenir : ');
+db.prepare('INSERT INTO consultation_templates (doctor_id, nom, motif, contenu) VALUES (?, ?, ?, ?)')
+  .run(doctorId, 'Suivi diabete', 'Suivi diabete', 'Glycemie a jeun : \nHbA1c : \nPoids : \nObservance : \nAdaptation traitement : ');
+
 console.log('Donnees de demonstration inserees.');
 console.log('\nComptes de connexion (mot de passe : demo1234) :');
 console.log('  Medecin     -> medecin@demo.test');

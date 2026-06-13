@@ -4,6 +4,8 @@ import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { calcAge, formatDate, lines } from '../utils.js';
 import VitalsSection from '../components/VitalsSection.jsx';
+import VaccinationsSection from '../components/VaccinationsSection.jsx';
+import DocumentsSection from '../components/DocumentsSection.jsx';
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -33,6 +35,7 @@ export default function PatientDetail() {
       <div className="row between">
         <Link to="/patients" className="muted">← Tous les patients</Link>
         <div className="row">
+          <button className="btn btn-sm" onClick={() => api.download(`/patients/${id}/dossier.pdf`, `dossier-${p.nom}.pdf`).catch((e) => alert(e.message))}>📄 Exporter le dossier</button>
           <Link to={`/patients/${id}/modifier`} className="btn btn-sm">Modifier</Link>
           {isMedecin && <button className="btn btn-sm btn-danger" onClick={remove}>Supprimer</button>}
         </div>
@@ -80,6 +83,8 @@ export default function PatientDetail() {
       <Consultations patient={p} isMedecin={isMedecin} onChange={reload} />
       <Prescriptions patient={p} meds={meds} onChange={reload} />
       <VitalsSection patientId={p.id} mode="staff" />
+      <VaccinationsSection patientId={p.id} mode="staff" canDelete={isMedecin} />
+      <DocumentsSection patientId={p.id} mode="staff" canDelete={isMedecin} />
     </div>
   );
 }
@@ -90,7 +95,16 @@ function Info({ label, value }) {
 
 function Consultations({ patient, isMedecin, onChange }) {
   const [open, setOpen] = useState(false);
+  const [templates, setTemplates] = useState([]);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), motif: '', diagnostic: '', notes: '' });
+
+  useEffect(() => { if (open && templates.length === 0) api.get('/templates').then(setTemplates).catch(() => {}); }, [open]);
+
+  function applyTemplate(id) {
+    const t = templates.find((x) => String(x.id) === id);
+    if (!t) return;
+    setForm((f) => ({ ...f, motif: t.motif || f.motif, notes: t.contenu || f.notes }));
+  }
 
   async function add(e) {
     e.preventDefault();
@@ -108,6 +122,14 @@ function Consultations({ patient, isMedecin, onChange }) {
 
       {open && (
         <form onSubmit={add} style={{ background: '#f8fafc', padding: '1rem', borderRadius: 8, margin: '.75rem 0' }}>
+          {isMedecin && templates.length > 0 && (
+            <div className="field"><label>Appliquer un modèle</label>
+              <select defaultValue="" onChange={(e) => applyTemplate(e.target.value)}>
+                <option value="">— Aucun —</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.nom}</option>)}
+              </select>
+            </div>
+          )}
           <div className="grid cols-2">
             <div className="field"><label>Date *</label><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></div>
             <div className="field"><label>Motif</label><input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} /></div>

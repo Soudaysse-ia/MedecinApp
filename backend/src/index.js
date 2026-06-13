@@ -9,6 +9,11 @@ import consultationRoutes from './routes/consultations.js';
 import medicationRoutes from './routes/medications.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import vitalsRoutes from './routes/vitals.js';
+import appointmentRoutes from './routes/appointments.js';
+import vaccinationRoutes from './routes/vaccinations.js';
+import documentRoutes from './routes/documents.js';
+import templateRoutes from './routes/templates.js';
+import auditRoutes from './routes/audit.js';
 import searchRoutes from './routes/search.js';
 import portalRoutes from './routes/portal.js';
 
@@ -16,7 +21,7 @@ initSchema();
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '15mb' })); // marge pour l'upload de documents (base64)
 
 app.get('/api/health', (req, res) => res.json({ ok: true, demo: true }));
 
@@ -26,6 +31,11 @@ app.use('/api/consultations', consultationRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/vitals', vitalsRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/vaccinations', vaccinationRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/templates', templateRoutes);
+app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
 

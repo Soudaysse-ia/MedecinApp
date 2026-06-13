@@ -107,7 +107,62 @@ export function initSchema() {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS appointments (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id      INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      doctor_id       INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      date            TEXT NOT NULL,      -- ISO datetime "YYYY-MM-DDTHH:MM"
+      motif           TEXT,
+      statut          TEXT NOT NULL DEFAULT 'confirme' CHECK (statut IN ('demande','confirme','annule')),
+      cree_par        TEXT,               -- role a l'origine du RDV
+      rappel_envoye   INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS vaccinations (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id   INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      vaccin       TEXT NOT NULL,
+      date         TEXT,
+      rappel_prevu TEXT,
+      notes        TEXT,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS documents (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id  INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      type        TEXT,                   -- 'analyse' | 'imagerie' | 'compte-rendu' | 'autre'
+      filename    TEXT NOT NULL,
+      mime        TEXT,
+      data        TEXT NOT NULL,          -- contenu encode en base64 (prototype)
+      date        TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS consultation_templates (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      nom       TEXT NOT NULL,
+      motif     TEXT,
+      contenu   TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id   INTEGER,
+      role      TEXT,
+      doctor_id INTEGER,                  -- cabinet concerne (pour le filtrage)
+      action    TEXT NOT NULL,
+      cible     TEXT,
+      date      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vitals_patient ON vitals(patient_id);
+    CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);
+    CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_patient ON documents(patient_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_doctor ON audit_log(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_patients_doctor ON patients(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_consultations_patient ON consultations(patient_id);
     CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);

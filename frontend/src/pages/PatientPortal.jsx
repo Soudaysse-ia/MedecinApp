@@ -2,6 +2,64 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { calcAge, formatDate, lines } from '../utils.js';
 import VitalsSection from '../components/VitalsSection.jsx';
+import VaccinationsSection from '../components/VaccinationsSection.jsx';
+import DocumentsSection from '../components/DocumentsSection.jsx';
+
+function fmtDT(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? iso : d.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function Appointments({ patientId }) {
+  const [list, setList] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ date: '', motif: '' });
+  const [msg, setMsg] = useState('');
+
+  function load() { api.get('/portal/appointments').then(setList); }
+  useEffect(() => { load(); }, []);
+
+  async function request(e) {
+    e.preventDefault();
+    await api.post('/portal/appointments', { date: form.date, motif: form.motif || null });
+    setForm({ date: '', motif: '' }); setOpen(false); setMsg('Demande envoyée — en attente de confirmation du cabinet.');
+    setTimeout(() => setMsg(''), 5000); load();
+  }
+
+  const now = new Date().toISOString();
+  const upcoming = list.filter((a) => a.date >= now && a.statut !== 'annule');
+
+  return (
+    <div className="card">
+      <div className="row between">
+        <h2>Mes rendez-vous</h2>
+        <button className="btn-sm btn-primary" onClick={() => setOpen((o) => !o)}>{open ? 'Annuler' : 'Demander un RDV'}</button>
+      </div>
+      {msg && <p style={{ color: '#166534' }}>{msg}</p>}
+      {open && (
+        <form onSubmit={request} style={{ background: '#f8fafc', padding: '1rem', borderRadius: 8, margin: '.75rem 0' }}>
+          <div className="grid cols-2">
+            <div className="field"><label>Date et heure souhaitées *</label><input type="datetime-local" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></div>
+            <div className="field"><label>Motif</label><input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} /></div>
+          </div>
+          <button className="btn-primary">Envoyer la demande</button>
+        </form>
+      )}
+      {upcoming.length === 0 ? <p className="muted">Aucun rendez-vous à venir.</p> : (
+        <table>
+          <thead><tr><th>Date</th><th>Motif</th><th>Statut</th></tr></thead>
+          <tbody>
+            {upcoming.map((a) => (
+              <tr key={a.id}><td>{fmtDT(a.date)}</td><td>{a.motif || '—'}</td>
+                <td><span className={`badge ${a.statut === 'confirme' ? 'ok' : 'muted'}`}>{a.statut === 'confirme' ? 'Confirmé' : 'En attente'}</span></td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 export default function PatientPortal() {
   const [data, setData] = useState(null);
@@ -45,7 +103,10 @@ export default function PatientPortal() {
         )}
       </div>
 
+      <Appointments patientId={patient.id} />
       <VitalsSection patientId={patient.id} mode="patient" />
+      <VaccinationsSection patientId={patient.id} mode="patient" />
+      <DocumentsSection patientId={patient.id} mode="patient" />
 
       <div className="card">
         <h2>Mes consultations</h2>

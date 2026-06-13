@@ -4,6 +4,7 @@ import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { resolveDoctorId, patientBelongsToDoctor } from '../lib/context.js';
 import { buildOrdonnancePdf } from '../lib/pdf.js';
+import { logAudit } from '../lib/audit.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('medecin', 'secretaire'));
@@ -140,6 +141,7 @@ router.post('/', (req, res) => {
   const created = db.prepare('SELECT * FROM prescriptions WHERE id = ?').get(info.lastInsertRowid);
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(d.patient_id);
   const actives = activePrescriptions(d.patient_id, created.id);
+  logAudit({ user: req.user, doctorId, action: 'creation_prescription', cible: `patient #${d.patient_id} : ${nom}` });
   res.status(201).json({ prescription: created, alerts: computeAlerts(patient, nom, ci, actives) });
 });
 

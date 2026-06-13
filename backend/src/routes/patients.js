@@ -3,6 +3,8 @@ import { z } from 'zod';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { resolveDoctorId, patientBelongsToDoctor } from '../lib/context.js';
+import { logAudit } from '../lib/audit.js';
+import { buildDossierPdf } from '../lib/pdf.js';
 
 const router = Router();
 
@@ -59,12 +61,35 @@ router.get('/:id', (req, res) => {
     'SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC'
   ).all(patient.id);
 
+  logAudit({ user: req.user, doctorId, action: 'consultation_fiche', cible: `patient #${patient.id} (${patient.nom} ${patient.prenom})` });
   res.json({
     ...patient,
     derniere_consultation: consultations[0] || null,
     consultations,
     prescriptions,
   });
+});
+
+// Export PDF du dossier complet
+router.get('/:id/dossier.pdf', async (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ? AND doctor_id = ?').get(req.params.id, doctorId);
+  if (!patient) return res.status(404).json({ error: 'Patient introuvable' });
+
+  const data = {
+    doctor: db.prepare('SELECT u.nom FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id = ?').get(doctorId),
+    patient,
+    consultations: db.prepare('SELECT * FROM consultations WHERE patient_id = ? ORDER BY date DESC').all(patient.id),
+    prescriptions: db.prepare('SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC').all(patient.id),
+    vitals: db.prepare('SELECT * FROM vitals WHERE patient_id = ? ORDER BY date ASC').all(patient.id),
+    vaccinations: db.prepare('SELECT * FROM vaccinations WHERE patient_id = ? ORDER BY date DESC').all(patient.id),
+    documents: db.prepare('SELECT id, type, filename, date FROM documents WHERE patient_id = ? ORDER BY date DESC').all(patient.id),
+  };
+  const bytes = await buildDossierPdf(data);
+  logAudit({ user: req.user, doctorId, action: 'export_dossier', cible: `patient #${patient.id}` });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="dossier-${patient.nom}-${patient.id}.pdf"`);
+  res.end(Buffer.from(bytes));
 });
 
 // Creation
@@ -86,6 +111,7 @@ router.post('/', (req, res) => {
   `).run({ doctor_id: doctorId, ...normalize(d) });
 
   const created = db.prepare('SELECT * FROM patients WHERE id = ?').get(info.lastInsertRowid);
+  logAudit({ user: req.user, doctorId, action: 'creation_patient', cible: `patient #${created.id} (${created.nom} ${created.prenom})` });
   res.status(201).json(created);
 });
 
@@ -110,6 +136,7 @@ router.put('/:id', (req, res) => {
   `).run({ id: Number(req.params.id), ...d });
 
   const updated = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
+  logAudit({ user: req.user, doctorId, action: 'modif_patient', cible: `patient #${updated.id} (${updated.nom} ${updated.prenom})` });
   res.json(updated);
 });
 
@@ -120,6 +147,7 @@ router.delete('/:id', requireRole('medecin'), (req, res) => {
     return res.status(404).json({ error: 'Patient introuvable' });
   }
   db.prepare('DELETE FROM patients WHERE id = ?').run(req.params.id);
+  logAudit({ user: req.user, doctorId, action: 'suppression_patient', cible: `patient #${req.params.id}` });
   res.status(204).end();
 });
 

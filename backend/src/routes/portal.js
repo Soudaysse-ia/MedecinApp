@@ -62,6 +62,52 @@ router.post('/vitals', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM vitals WHERE id = ?').get(info.lastInsertRowid));
 });
 
+// --- Rendez-vous ---
+router.get('/appointments', (req, res) => {
+  const patientId = currentPatient(req, res);
+  if (!patientId) return;
+  res.json(db.prepare('SELECT id, date, motif, statut FROM appointments WHERE patient_id = ? ORDER BY date DESC').all(patientId));
+});
+
+// Demande de RDV (a confirmer par le cabinet) : statut force a 'demande'
+const apptSchema = z.object({ date: z.string().min(1), motif: z.string().optional().nullable() });
+router.post('/appointments', (req, res) => {
+  const patientId = currentPatient(req, res);
+  if (!patientId) return;
+  const parsed = apptSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Donnees invalides' });
+  const patient = db.prepare('SELECT doctor_id FROM patients WHERE id = ?').get(patientId);
+  const info = db.prepare(`
+    INSERT INTO appointments (patient_id, doctor_id, date, motif, statut, cree_par)
+    VALUES (?, ?, ?, ?, 'demande', 'patient')
+  `).run(patientId, patient.doctor_id, parsed.data.date, parsed.data.motif ?? null);
+  res.status(201).json(db.prepare('SELECT id, date, motif, statut FROM appointments WHERE id = ?').get(info.lastInsertRowid));
+});
+
+// --- Vaccinations (lecture) ---
+router.get('/vaccinations', (req, res) => {
+  const patientId = currentPatient(req, res);
+  if (!patientId) return;
+  res.json(db.prepare('SELECT vaccin, date, rappel_prevu FROM vaccinations WHERE patient_id = ? ORDER BY date DESC').all(patientId));
+});
+
+// --- Documents partages (lecture + telechargement) ---
+router.get('/documents', (req, res) => {
+  const patientId = currentPatient(req, res);
+  if (!patientId) return;
+  res.json(db.prepare('SELECT id, type, filename, mime, date FROM documents WHERE patient_id = ? ORDER BY date DESC').all(patientId));
+});
+
+router.get('/documents/:id/download', (req, res) => {
+  const patientId = currentPatient(req, res);
+  if (!patientId) return;
+  const d = db.prepare('SELECT * FROM documents WHERE id = ? AND patient_id = ?').get(req.params.id, patientId);
+  if (!d) return res.status(404).json({ error: 'Document introuvable' });
+  res.setHeader('Content-Type', d.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="${d.filename}"`);
+  res.end(Buffer.from(d.data, 'base64'));
+});
+
 // Telechargement PDF d'une de ses prescriptions
 router.get('/prescriptions/:id/pdf', async (req, res) => {
   const patientId = currentPatient(req, res);

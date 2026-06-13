@@ -105,6 +105,15 @@ Le code isole l'accès aux données dans `backend/src/db.js`. Pour passer à Pos
 2. Adapter le DDL : `INTEGER PRIMARY KEY AUTOINCREMENT` → `SERIAL`/`IDENTITY`, `datetime('now')` → `now()`.
 3. Les requêtes utilisent des paramètres nommés (`@param`) / positionnels (`?`) — à convertir en `$1, $2…` pour `pg`.
 
-## Pistes V2 / V3 (non incluses)
+### Ajouts V3
 
-Suivi des constantes + graphiques, vaccinations, pièces jointes (PDF/imagerie), génération PDF des ordonnances, agenda & rendez-vous avec rappels, journal d'audit, export du dossier complet, modèles de consultation.
+- **Agenda & rendez-vous** : création/modification/annulation par le cabinet ; le patient voit ses RDV à venir et peut **en demander un** (statut « demande » à confirmer). **Rappels** des RDV sous 48h (simulés — log serveur + flag `rappel_envoye` ; un vrai job email/SMS se brancherait ici).
+- **Vaccinations** : vaccins reçus, dates, **rappels à venir** (mis en évidence quand échus), côté médecin et lecture patient.
+- **Pièces jointes** : upload de documents (PDF/image) classés par type et date, téléchargeables ; le patient consulte ceux partagés. (Stockés en base64 en base pour rester auto-contenu ; en prod → stockage objet type S3.)
+- **Journal d'audit** : traçabilité (qui / quoi / quand) des consultations de fiche, créations/modifs/suppressions, prescriptions, exports, accès documents. Consultable par le médecin.
+- **Modèles de consultation** : notes prédéfinies par motif, applicables en un clic dans le formulaire de consultation.
+- **Export du dossier complet en PDF** (multi-pages) : identité, allergies, antécédents, consultations, prescriptions, constantes, vaccinations, documents.
+
+## Pistes au-delà de la V3
+
+Vraie intégration email/SMS pour les rappels, stockage objet pour les pièces jointes, chiffrement au repos, comptes secrétaire/infirmier multiples, internationalisation, tests automatisés.
