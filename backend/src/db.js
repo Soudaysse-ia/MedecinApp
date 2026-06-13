@@ -158,6 +158,20 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);
     CREATE INDEX IF NOT EXISTS idx_documents_patient ON documents(patient_id);
+    CREATE TABLE IF NOT EXISTS invoices (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      doctor_id     INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      numero        TEXT NOT NULL,
+      date_emission TEXT NOT NULL,
+      periode_debut TEXT,
+      periode_fin   TEXT,
+      montant       REAL NOT NULL,
+      devise        TEXT NOT NULL DEFAULT 'EUR',
+      statut        TEXT NOT NULL DEFAULT 'impayee' CHECK (statut IN ('payee','impayee')),
+      date_paiement TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_invoices_doctor ON invoices(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_audit_doctor ON audit_log(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_patients_doctor ON patients(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_consultations_patient ON consultations(patient_id);

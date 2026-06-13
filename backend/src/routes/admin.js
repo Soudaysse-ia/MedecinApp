@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
+import { buildInvoicePdf } from '../lib/pdf.js';
 
 const router = Router();
 // Interface proprietaire : reservee au role admin
@@ -25,7 +26,55 @@ router.get('/doctors', (req, res) => {
     JOIN users u ON u.id = d.user_id
     ORDER BY u.nom
   `).all();
+
+  // Enrichit avec dernier paiement et prochaine facture (premiere facture impayee)
+  for (const r of rows) {
+    r.dernier_paiement = db.prepare(
+      "SELECT MAX(date_paiement) m FROM invoices WHERE doctor_id = ? AND statut = 'payee'"
+    ).get(r.doctor_id).m;
+    r.prochaine_facture = db.prepare(
+      "SELECT numero, date_emission, montant, devise FROM invoices WHERE doctor_id = ? AND statut = 'impayee' ORDER BY date_emission LIMIT 1"
+    ).get(r.doctor_id) || null;
+  }
   res.json(rows);
+});
+
+// Factures d'un medecin
+router.get('/doctors/:id/invoices', (req, res) => {
+  const exists = db.prepare('SELECT id FROM doctors WHERE id = ?').get(req.params.id);
+  if (!exists) return res.status(404).json({ error: 'Medecin introuvable' });
+  res.json(db.prepare('SELECT * FROM invoices WHERE doctor_id = ? ORDER BY date_emission DESC').all(req.params.id));
+});
+
+// Telechargement d'une facture en PDF
+router.get('/invoices/:id/pdf', async (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: 'Facture introuvable' });
+  const doctor = db.prepare(`
+    SELECT u.nom, u.email, d.cabinet_nom, d.cabinet_adresse
+    FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id = ?
+  `).get(invoice.doctor_id);
+  const bytes = await buildInvoicePdf({ invoice, doctor });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.numero}.pdf"`);
+  res.end(Buffer.from(bytes));
+});
+
+// Marque une facture payee / impayee, et recalcule le statut d'abonnement du medecin
+router.patch('/invoices/:id', (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: 'Facture introuvable' });
+  const statut = req.body.statut;
+  if (!['payee', 'impayee'].includes(statut)) return res.status(400).json({ error: 'Statut invalide' });
+
+  const datePaiement = statut === 'payee' ? (req.body.date_paiement || new Date().toISOString().slice(0, 10)) : null;
+  db.prepare('UPDATE invoices SET statut = ?, date_paiement = ? WHERE id = ?').run(statut, datePaiement, invoice.id);
+
+  // Le medecin est "paye" s'il ne reste aucune facture impayee
+  const reste = db.prepare("SELECT COUNT(*) c FROM invoices WHERE doctor_id = ? AND statut = 'impayee'").get(invoice.doctor_id).c;
+  db.prepare('UPDATE doctors SET abonnement_statut = ? WHERE id = ?').run(reste > 0 ? 'impaye' : 'paye', invoice.doctor_id);
+
+  res.json(db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id));
 });
 
 // Statistiques globales pour l'en-tete du tableau de bord

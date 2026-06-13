@@ -1,5 +1,81 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
+// Genere une facture d'abonnement PDF (A4).
+// invoice: { numero, date_emission, periode_debut, periode_fin, montant, devise, statut, date_paiement }
+// doctor:  { nom, email, cabinet_nom, cabinet_adresse }
+export async function buildInvoicePdf({ invoice, doctor }) {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595, 842]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  const M = 50, W = 595 - M * 2;
+  const ink = rgb(0.09, 0.15, 0.23), blue = rgb(0.04, 0.30, 0.63), grey = rgb(0.42, 0.49, 0.56);
+  const t = (s, x, y, { size = 11, f = font, color = ink } = {}) =>
+    page.drawText(String(s ?? ''), { x, y, size, font: f, color });
+
+  // En-tete fournisseur (proprietaire de la plateforme)
+  t('MedVault', M, 792, { size: 20, f: bold, color: blue });
+  t('Plateforme de gestion de dossiers medicaux', M, 774, { size: 9, color: grey });
+  t('contact@medvault.example  -  Demo / donnees fictives', M, 762, { size: 9, color: grey });
+
+  // Bloc facture (a droite)
+  t('FACTURE', M + W - 160, 792, { size: 18, f: bold });
+  t('N° ' + invoice.numero, M + W - 160, 772, { size: 10, color: grey });
+  t('Emise le ' + fmtFr(invoice.date_emission), M + W - 160, 759, { size: 10, color: grey });
+
+  page.drawLine({ start: { x: M, y: 740 }, end: { x: M + W, y: 740 }, thickness: 1, color: rgb(0.85, 0.88, 0.92) });
+
+  // Destinataire
+  t('Facture a', M, 716, { size: 9, f: bold, color: grey });
+  t(doctor?.nom || 'Medecin', M, 700, { size: 12, f: bold });
+  if (doctor?.cabinet_nom) t(doctor.cabinet_nom, M, 685, { size: 10, color: grey });
+  if (doctor?.cabinet_adresse) t(doctor.cabinet_adresse, M, 672, { size: 10, color: grey });
+  if (doctor?.email) t(doctor.email, M, 659, { size: 10, color: grey });
+
+  // Tableau lignes
+  let y = 620;
+  page.drawRectangle({ x: M, y: y - 4, width: W, height: 22, color: rgb(0.95, 0.97, 0.99) });
+  t('DESCRIPTION', M + 8, y + 2, { size: 9, f: bold, color: grey });
+  t('MONTANT', M + W - 90, y + 2, { size: 9, f: bold, color: grey });
+  y -= 30;
+
+  const periode = invoice.periode_debut && invoice.periode_fin
+    ? `Periode du ${fmtFr(invoice.periode_debut)} au ${fmtFr(invoice.periode_fin)}` : '';
+  t('Abonnement MedVault', M + 8, y, { size: 11, f: bold });
+  if (periode) { y -= 14; t(periode, M + 8, y, { size: 9, color: grey }); }
+  t(money(invoice.montant, invoice.devise), M + W - 90, y + (periode ? 14 : 0), { size: 11 });
+
+  y -= 30;
+  page.drawLine({ start: { x: M, y }, end: { x: M + W, y }, thickness: 0.5, color: rgb(0.85, 0.88, 0.92) });
+  y -= 24;
+  t('Total', M + W - 200, y, { size: 12, f: bold });
+  t(money(invoice.montant, invoice.devise), M + W - 90, y, { size: 12, f: bold, color: blue });
+
+  // Statut
+  y -= 36;
+  if (invoice.statut === 'payee') {
+    t('PAYEE', M, y, { size: 12, f: bold, color: rgb(0.08, 0.5, 0.32) });
+    t('Reglee le ' + fmtFr(invoice.date_paiement), M + 70, y, { size: 10, color: grey });
+  } else {
+    t('A REGLER', M, y, { size: 12, f: bold, color: rgb(0.76, 0.17, 0.15) });
+    t('Echeance : ' + fmtFr(invoice.date_emission), M + 90, y, { size: 10, color: grey });
+  }
+
+  t('Document genere par un prototype - donnees fictives, sans valeur comptable.', M, 60, { size: 8, color: rgb(0.6, 0.6, 0.6) });
+  return await doc.save();
+}
+
+function money(v, devise = 'EUR') {
+  const sym = devise === 'EUR' ? ' EUR' : ' ' + devise;
+  return (Number(v) || 0).toFixed(2).replace('.', ',') + sym;
+}
+function fmtFr(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return isNaN(d) ? iso : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 // Genere une ordonnance PDF (A4) pour un patient et une liste de prescriptions.
 // doctor: { nom, specialite, cabinet_nom, cabinet_adresse, cabinet_tel }
 export async function buildOrdonnancePdf({ doctor, patient, prescriptions, date }) {
