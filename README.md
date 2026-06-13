@@ -1,6 +1,6 @@
 # 🩺 Carnet Médical — application de démonstration
 
-Application web full-stack pour la gestion de dossiers médicaux, destinée aux **médecins**, à leur **secrétaire** et à leurs **patients**.
+Application web full-stack pour la gestion de dossiers médicaux, destinée aux **médecins** et à leurs **patients**.
 
 > ⚠️ **Prototype de démonstration.** Toutes les données sont **fictives**. Ce projet ne contient et ne doit contenir **aucune donnée de santé réelle**.
 
@@ -18,8 +18,8 @@ Le schéma SQL est écrit de façon portable pour faciliter une migration ultér
 
 ## Périmètre couvert (V1)
 
-- **Authentification multi-rôles** : médecin, secrétaire, patient (mots de passe hashés, sessions JWT).
-- **Contrôle d'accès strict** : un médecin/secrétaire ne voit que les patients de son cabinet ; un patient ne voit que son propre dossier.
+- **Authentification multi-rôles** : médecin, patient (mots de passe hashés, sessions JWT).
+- **Contrôle d'accès strict** : un médecin ne voit que les patients de son cabinet ; un patient ne voit que son propre dossier.
 - **Gestion des patients** (CRUD) : identité, coordonnées, contact d'urgence, allergies, maladies chroniques.
 - **Dossier médical** : allergies en **bandeau d'alerte rouge**, maladies chroniques, historique des consultations, dernière consultation mise en évidence, historique des prescriptions.
 - **Catalogue de médicaments** géré par le médecin (nom, dosage, forme, posologie standard, contre-indications).
@@ -36,14 +36,13 @@ Le schéma SQL est écrit de façon portable pour faciliter une migration ultér
 
 ### Permissions par rôle
 
-| Action | Médecin | Secrétaire | Patient |
-|---|:---:|:---:|:---:|
-| Voir / créer / modifier un patient | ✅ | ✅ | — |
-| Supprimer un patient | ✅ | — | — |
-| Saisir diagnostic & notes | ✅ | — | — |
-| Gérer le catalogue de médicaments | ✅ | lecture | — |
-| Créer une prescription | ✅ | ✅ | — |
-| Voir son propre dossier | — | — | ✅ |
+| Action | Médecin | Patient |
+|---|:---:|:---:|
+| Voir / créer / modifier / supprimer un patient | ✅ | — |
+| Saisir diagnostic & notes | ✅ | — |
+| Gérer le catalogue de médicaments | ✅ | — |
+| Créer une prescription | ✅ | — |
+| Voir son propre dossier (lecture) | — | ✅ |
 
 ## Démarrage
 
@@ -74,7 +73,6 @@ Mot de passe commun : **`demo1234`**
 | Rôle | Email |
 |---|---|
 | Médecin | `medecin@demo.test` |
-| Secrétaire | `secretaire@demo.test` |
 | Patient | `patient@demo.test` |
 
 ## Structure du projet
@@ -116,4 +114,4 @@ Le code isole l'accès aux données dans `backend/src/db.js`. Pour passer à Pos
 
 ## Pistes au-delà de la V3
 
-Vraie intégration email/SMS pour les rappels, stockage objet pour les pièces jointes, chiffrement au repos, comptes secrétaire/infirmier multiples, internationalisation, tests automatisés.
+Vraie intégration email/SMS pour les rappels, stockage objet pour les pièces jointes, chiffrement au repos, internationalisation, tests automatisés.
