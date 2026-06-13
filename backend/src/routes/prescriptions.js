@@ -3,9 +3,17 @@ import { z } from 'zod';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { resolveDoctorId, patientBelongsToDoctor } from '../lib/context.js';
+import { buildOrdonnancePdf } from '../lib/pdf.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('medecin', 'secretaire'));
+
+// Prescriptions en cours d'un patient (pour le controle d'interactions)
+function activePrescriptions(patientId, excludeId = null) {
+  return db.prepare(
+    `SELECT * FROM prescriptions WHERE patient_id = ? AND statut = 'en_cours'${excludeId ? ' AND id != ?' : ''}`
+  ).all(...(excludeId ? [patientId, excludeId] : [patientId]));
+}
 
 const schema = z.object({
   patient_id: z.number().int(),
@@ -20,7 +28,7 @@ const schema = z.object({
 
 // Verifie les alertes d'allergie / contre-indication pour un patient + medicament.
 // Expose aussi en GET pour permettre au front d'alerter avant validation.
-function computeAlerts(patient, medicationNom, contreIndications) {
+function computeAlerts(patient, medicationNom, contreIndications, actives = []) {
   const alerts = [];
   const allergies = (patient.allergies || '').toLowerCase();
   const ci = (contreIndications || '').toLowerCase();
@@ -57,6 +65,29 @@ function computeAlerts(patient, medicationNom, contreIndications) {
       }
     }
   }
+
+  // Interaction avec un traitement en cours : le nom d'un medicament actif
+  // apparait-il dans les contre-indications du nouveau medicament (ou inversement) ?
+  const newName = (medicationNom || '').toLowerCase();
+  for (const act of actives) {
+    const actName = (act.medication_nom || '').toLowerCase();
+    const actRoot = actName.slice(0, Math.max(5, actName.length - 2));
+    if (!actRoot) continue;
+    const ciHit = ci && ci.includes(actRoot);
+    // contre-indications du medicament actif (depuis le catalogue, si disponible)
+    let actCi = '';
+    if (act.medication_id) {
+      const m = db.prepare('SELECT contre_indications FROM medications WHERE id = ?').get(act.medication_id);
+      actCi = (m?.contre_indications || '').toLowerCase();
+    }
+    const reverseHit = actCi && newName && actCi.includes(newName.slice(0, Math.max(5, newName.length - 2)));
+    if (ciHit || reverseHit) {
+      alerts.push({
+        type: 'interaction',
+        message: `Interaction possible avec un traitement en cours : "${act.medication_nom}".`,
+      });
+    }
+  }
   return alerts;
 }
 
@@ -76,7 +107,7 @@ router.get('/alerts', (req, res) => {
     const med = db.prepare('SELECT * FROM medications WHERE id = ? AND doctor_id = ?').get(medicationId, doctorId);
     if (med) { nom = med.nom; ci = med.contre_indications; }
   }
-  res.json({ alerts: computeAlerts(patient, nom, ci) });
+  res.json({ alerts: computeAlerts(patient, nom, ci, activePrescriptions(patientId)) });
 });
 
 router.post('/', (req, res) => {
@@ -108,7 +139,45 @@ router.post('/', (req, res) => {
 
   const created = db.prepare('SELECT * FROM prescriptions WHERE id = ?').get(info.lastInsertRowid);
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(d.patient_id);
-  res.status(201).json({ prescription: created, alerts: computeAlerts(patient, nom, ci) });
+  const actives = activePrescriptions(d.patient_id, created.id);
+  res.status(201).json({ prescription: created, alerts: computeAlerts(patient, nom, ci, actives) });
+});
+
+// --- Generation PDF ---
+// Helper partage : recupere medecin + patient et renvoie le PDF d'une ordonnance.
+async function sendOrdonnance(res, doctorId, patientId, prescriptions, filename) {
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId);
+  const doctor = db.prepare(`
+    SELECT u.nom, d.specialite, d.cabinet_nom, d.cabinet_adresse, d.cabinet_tel
+    FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id = ?
+  `).get(doctorId);
+  const date = prescriptions[0]?.date || new Date().toISOString().slice(0, 10);
+  const bytes = await buildOrdonnancePdf({ doctor, patient, prescriptions, date });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.end(Buffer.from(bytes));
+}
+
+// PDF d'une prescription unique
+router.get('/:id/pdf', async (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  const presc = db.prepare(`
+    SELECT p.* FROM prescriptions p JOIN patients pa ON pa.id = p.patient_id
+    WHERE p.id = ? AND pa.doctor_id = ?
+  `).get(req.params.id, doctorId);
+  if (!presc) return res.status(404).json({ error: 'Prescription introuvable' });
+  await sendOrdonnance(res, doctorId, presc.patient_id, [presc], `ordonnance-${presc.id}.pdf`);
+});
+
+// PDF de l'ordonnance complete (toutes les prescriptions en cours d'un patient)
+router.get('/patient/:patientId/ordonnance.pdf', async (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  if (!patientBelongsToDoctor(req.params.patientId, doctorId)) {
+    return res.status(404).json({ error: 'Patient introuvable' });
+  }
+  const actives = activePrescriptions(req.params.patientId);
+  if (actives.length === 0) return res.status(400).json({ error: 'Aucune prescription en cours' });
+  await sendOrdonnance(res, doctorId, Number(req.params.patientId), actives, `ordonnance-patient-${req.params.patientId}.pdf`);
 });
 
 // Changer le statut (en_cours <-> terminee)

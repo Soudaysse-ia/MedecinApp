@@ -27,6 +27,13 @@ Le schéma SQL est écrit de façon portable pour faciliter une migration ultér
 - **Recherche & filtres avancés** : par nom/prénom/n° d'identité, par maladie chronique, par médicament prescrit, par ancienneté de la dernière consultation.
 - **Espace patient** (lecture seule) : ses informations, prescriptions et consultations.
 
+### Ajouts V2
+
+- **Génération PDF des ordonnances** (`pdf-lib`) : en-tête cabinet, patient, allergies en évidence, posologies, ligne de signature. Téléchargeable par le médecin (par prescription ou ordonnance complète) **et** par le patient.
+- **Suivi des constantes** : poids, taille, **IMC calculé**, tension, température, glycémie, avec **graphique d'évolution** (SVG, sans dépendance) et sélection du paramètre tracé.
+- **Saisie à domicile par le patient** : le patient peut renseigner son poids et sa glycémie, consultables par le médecin (la source de chaque mesure est tracée).
+- **Alertes d'interactions** : en plus des allergies et contre-indications, alerte si le médicament prescrit interagit avec un **traitement en cours**.
+
 ### Permissions par rôle
 
 | Action | Médecin | Secrétaire | Patient |

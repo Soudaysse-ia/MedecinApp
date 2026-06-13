@@ -8,6 +8,7 @@ import patientRoutes from './routes/patients.js';
 import consultationRoutes from './routes/consultations.js';
 import medicationRoutes from './routes/medications.js';
 import prescriptionRoutes from './routes/prescriptions.js';
+import vitalsRoutes from './routes/vitals.js';
 import searchRoutes from './routes/search.js';
 import portalRoutes from './routes/portal.js';
 
@@ -24,6 +25,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/vitals', vitalsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
 

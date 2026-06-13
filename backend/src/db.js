@@ -94,6 +94,20 @@ export function initSchema() {
       created_at           TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS vitals (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id  INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      date        TEXT NOT NULL,
+      poids       REAL,           -- kg
+      taille      REAL,           -- cm
+      tension     TEXT,           -- ex: "120/80"
+      temperature REAL,           -- degC
+      glycemie    REAL,           -- g/L
+      saisi_par   TEXT,           -- 'medecin' | 'secretaire' | 'patient'
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_vitals_patient ON vitals(patient_id);
     CREATE INDEX IF NOT EXISTS idx_patients_doctor ON patients(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_consultations_patient ON consultations(patient_id);
     CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);

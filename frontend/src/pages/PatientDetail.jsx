@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { calcAge, formatDate, lines } from '../utils.js';
+import VitalsSection from '../components/VitalsSection.jsx';
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -78,6 +79,7 @@ export default function PatientDetail() {
 
       <Consultations patient={p} isMedecin={isMedecin} onChange={reload} />
       <Prescriptions patient={p} meds={meds} onChange={reload} />
+      <VitalsSection patientId={p.id} mode="staff" />
     </div>
   );
 }
@@ -179,7 +181,14 @@ function Prescriptions({ patient, meds, onChange }) {
     <div className="card">
       <div className="row between">
         <h2>Prescriptions ({patient.prescriptions.length})</h2>
-        <button className="btn-sm btn-primary" onClick={() => setOpen((o) => !o)}>{open ? 'Annuler' : '+ Prescription'}</button>
+        <div className="row" style={{ gap: '.4rem' }}>
+          {patient.prescriptions.some((pr) => pr.statut === 'en_cours') && (
+            <button className="btn-sm" onClick={() => api.download(`/prescriptions/patient/${patient.id}/ordonnance.pdf`, `ordonnance-${patient.nom}.pdf`).catch((e) => alert(e.message))}>
+              📄 Ordonnance PDF
+            </button>
+          )}
+          <button className="btn-sm btn-primary" onClick={() => setOpen((o) => !o)}>{open ? 'Annuler' : '+ Prescription'}</button>
+        </div>
       </div>
 
       {open && (
@@ -225,7 +234,10 @@ function Prescriptions({ patient, meds, onChange }) {
                 <td>{pr.posologie_specifique || '—'}</td>
                 <td>{pr.duree || '—'}</td>
                 <td><span className={`badge ${pr.statut === 'en_cours' ? 'ok' : 'muted'}`}>{pr.statut === 'en_cours' ? 'En cours' : 'Terminée'}</span></td>
-                <td><button className="btn-sm" onClick={() => toggle(pr)}>{pr.statut === 'en_cours' ? 'Terminer' : 'Réactiver'}</button></td>
+                <td>
+                  <button className="btn-sm" onClick={() => api.download(`/prescriptions/${pr.id}/pdf`, `ordonnance-${pr.id}.pdf`).catch((e) => alert(e.message))} title="Télécharger en PDF">📄</button>{' '}
+                  <button className="btn-sm" onClick={() => toggle(pr)}>{pr.statut === 'en_cours' ? 'Terminer' : 'Réactiver'}</button>
+                </td>
               </tr>
             ))}
           </tbody>

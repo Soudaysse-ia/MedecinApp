@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { calcAge, formatDate, lines } from '../utils.js';
+import VitalsSection from '../components/VitalsSection.jsx';
 
 export default function PatientPortal() {
   const [data, setData] = useState(null);
@@ -32,16 +33,19 @@ export default function PatientPortal() {
         <h2>Mes prescriptions</h2>
         {prescriptions.length === 0 ? <p className="muted">Aucune.</p> : (
           <table>
-            <thead><tr><th>Date</th><th>Médicament</th><th>Posologie</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Date</th><th>Médicament</th><th>Posologie</th><th>Statut</th><th></th></tr></thead>
             <tbody>
               {prescriptions.map((pr) => (
                 <tr key={pr.id}><td>{formatDate(pr.date)}</td><td><strong>{pr.medication_nom}</strong></td><td>{pr.posologie_specifique || '—'}</td>
-                  <td><span className={`badge ${pr.statut === 'en_cours' ? 'ok' : 'muted'}`}>{pr.statut === 'en_cours' ? 'En cours' : 'Terminée'}</span></td></tr>
+                  <td><span className={`badge ${pr.statut === 'en_cours' ? 'ok' : 'muted'}`}>{pr.statut === 'en_cours' ? 'En cours' : 'Terminée'}</span></td>
+                  <td><button className="btn-sm" onClick={() => api.download(`/portal/prescriptions/${pr.id}/pdf`, `ordonnance-${pr.id}.pdf`).catch((e) => alert(e.message))} title="Télécharger en PDF">📄 PDF</button></td></tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <VitalsSection patientId={patient.id} mode="patient" />
 
       <div className="card">
         <h2>Mes consultations</h2>

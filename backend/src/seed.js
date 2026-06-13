@@ -98,6 +98,22 @@ insertPresc.run(p1, c1, mParac, 'Paracetamol', '1 cp matin/midi/soir', '5 jours'
 insertPresc.run(p2, null, null, 'Metformine', '1 cp x2/jour', '3 mois', 'A prendre pendant les repas', '2026-06-08', 'en_cours');
 insertPresc.run(p3, null, mIbu, 'Ibuprofene', '1 cp x3/jour', '5 jours', 'Apres les repas', '2026-03-15', 'terminee');
 
+// --- Constantes (vitals) ---
+const insertVital = db.prepare(`
+  INSERT INTO vitals (patient_id, date, poids, taille, tension, temperature, glycemie, saisi_par)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`);
+// Yssouf (HTA) : suivi tension + poids
+insertVital.run(p1, '2026-02-10', 82.0, 178, '145/92', 36.8, null, 'medecin');
+insertVital.run(p1, '2026-04-05', 81.0, 178, '138/88', 36.7, null, 'medecin');
+insertVital.run(p1, '2026-05-20', 80.2, 178, '135/85', 36.9, null, 'medecin');
+insertVital.run(p1, '2026-06-09', 79.5, null, null, null, null, 'patient'); // saisie domicile
+// Nadia (diabete) : suivi glycemie + poids
+insertVital.run(p2, '2026-03-01', 68.0, 165, '120/78', 36.6, 1.45, 'medecin');
+insertVital.run(p2, '2026-05-15', 67.0, 165, '118/76', 36.7, 1.62, 'medecin');
+insertVital.run(p2, '2026-06-08', 66.5, 165, '119/77', 36.6, 1.38, 'medecin');
+insertVital.run(p2, '2026-06-11', null, null, null, null, 1.30, 'patient'); // saisie domicile
+
 console.log('Donnees de demonstration inserees.');
 console.log('\nComptes de connexion (mot de passe : demo1234) :');
 console.log('  Medecin     -> medecin@demo.test');
