@@ -35,33 +35,6 @@ router.get('/dossier', (req, res) => {
   res.json({ patient, consultations, prescriptions, doctor });
 });
 
-// Constantes du patient (lecture)
-router.get('/vitals', (req, res) => {
-  const patientId = currentPatient(req, res);
-  if (!patientId) return;
-  res.json(db.prepare('SELECT * FROM vitals WHERE patient_id = ? ORDER BY date ASC, id ASC').all(patientId));
-});
-
-// Saisie a domicile : le patient ne peut renseigner que poids et glycemie
-const homeSchema = z.object({
-  date: z.string().min(1),
-  poids: z.number().positive().optional().nullable(),
-  glycemie: z.number().optional().nullable(),
-});
-router.post('/vitals', (req, res) => {
-  const patientId = currentPatient(req, res);
-  if (!patientId) return;
-  const parsed = homeSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Donnees invalides', details: parsed.error.flatten() });
-  const d = parsed.data;
-  if (d.poids == null && d.glycemie == null) return res.status(400).json({ error: 'Renseignez au moins le poids ou la glycemie' });
-  const info = db.prepare(`
-    INSERT INTO vitals (patient_id, date, poids, glycemie, saisi_par)
-    VALUES (?, ?, ?, ?, 'patient')
-  `).run(patientId, d.date, d.poids ?? null, d.glycemie ?? null);
-  res.status(201).json(db.prepare('SELECT * FROM vitals WHERE id = ?').get(info.lastInsertRowid));
-});
-
 // --- Rendez-vous ---
 router.get('/appointments', (req, res) => {
   const patientId = currentPatient(req, res);
@@ -82,13 +55,6 @@ router.post('/appointments', (req, res) => {
     VALUES (?, ?, ?, ?, 'demande', 'patient')
   `).run(patientId, patient.doctor_id, parsed.data.date, parsed.data.motif ?? null);
   res.status(201).json(db.prepare('SELECT id, date, motif, statut FROM appointments WHERE id = ?').get(info.lastInsertRowid));
-});
-
-// --- Vaccinations (lecture) ---
-router.get('/vaccinations', (req, res) => {
-  const patientId = currentPatient(req, res);
-  if (!patientId) return;
-  res.json(db.prepare('SELECT vaccin, date, rappel_prevu FROM vaccinations WHERE patient_id = ? ORDER BY date DESC').all(patientId));
 });
 
 // --- Documents partages (lecture + telechargement) ---

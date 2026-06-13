@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { calcAge, formatDate, lines } from '../utils.js';
-import VitalsSection from '../components/VitalsSection.jsx';
-import VaccinationsSection from '../components/VaccinationsSection.jsx';
 import DocumentsSection from '../components/DocumentsSection.jsx';
 
 function fmtDT(iso) {
@@ -104,8 +102,6 @@ export default function PatientPortal() {
       </div>
 
       <Appointments patientId={patient.id} />
-      <VitalsSection patientId={patient.id} mode="patient" />
-      <VaccinationsSection patientId={patient.id} mode="patient" />
       <DocumentsSection patientId={patient.id} mode="patient" />
 
       <div className="card">
