@@ -9,6 +9,7 @@ import Search from './pages/Search.jsx';
 import Agenda from './pages/Agenda.jsx';
 import Templates from './pages/Templates.jsx';
 import Audit from './pages/Audit.jsx';
+import Admin from './pages/Admin.jsx';
 import PatientPortal from './pages/PatientPortal.jsx';
 
 function Sidebar() {
@@ -27,6 +28,7 @@ function Sidebar() {
         {user.role === 'medecin' && <NavLink to="/journal">Journal d'audit</NavLink>}
       </>}
       {user.role === 'patient' && <NavLink to="/mon-dossier">Mon dossier</NavLink>}
+      {user.role === 'admin' && <NavLink to="/admin">Administration</NavLink>}
       <div className="spacer" />
       <div className="who">{user.nom}<br /><span className="badge muted">{user.role}</span></div>
       <button className="btn-sm" style={{ marginTop: '.5rem' }} onClick={() => { logout(); navigate('/login'); }}>
@@ -56,7 +58,7 @@ export default function App() {
   if (!user) return <Routes><Route path="*" element={<Login />} /></Routes>;
 
   const isStaff = user.role === 'medecin';
-  const home = isStaff ? '/patients' : '/mon-dossier';
+  const home = user.role === 'admin' ? '/admin' : isStaff ? '/patients' : '/mon-dossier';
 
   return (
     <Shell>
@@ -74,6 +76,7 @@ export default function App() {
           {user.role === 'medecin' && <Route path="/journal" element={<Audit />} />}
         </>}
         {user.role === 'patient' && <Route path="/mon-dossier" element={<PatientPortal />} />}
+        {user.role === 'admin' && <Route path="/admin" element={<Admin />} />}
         <Route path="*" element={<Navigate to={home} replace />} />
       </Routes>
     </Shell>

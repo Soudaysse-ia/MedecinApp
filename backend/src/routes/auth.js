@@ -21,7 +21,11 @@ router.post('/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Identifiants incorrects' });
   }
+  if (!user.active) {
+    return res.status(403).json({ error: 'Acces desactive. Contactez l\'administrateur pour regulariser votre abonnement.' });
+  }
 
+  db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(user.id);
   const token = signToken({ id: user.id, role: user.role, nom: user.nom });
   res.json({ token, user: publicUser(user) });
 });

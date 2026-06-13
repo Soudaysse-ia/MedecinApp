@@ -25,12 +25,22 @@ const insertUser = db.prepare(
   'INSERT INTO users (role, nom, email, password_hash) VALUES (?, ?, ?, ?)'
 );
 
+// Proprietaire de la plateforme (interface admin)
+insertUser.run('admin', 'Owner (Admin)', 'admin@demo.test', hash('demo1234'));
+
 const medUserId = insertUser.run('medecin', 'Dr Amina Bakary', 'medecin@demo.test', hash('demo1234')).lastInsertRowid;
 
 const doctorId = db.prepare(`
-  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel)
-  VALUES (?, 'Medecine generale', 'Cabinet de la Place', '12 rue des Lilas, Moroni', '+269 33 12 345')
+  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut)
+  VALUES (?, 'Medecine generale', 'Cabinet de la Place', '12 rue des Lilas, Moroni', '+269 33 12 345', 'paye')
 `).run(medUserId).lastInsertRowid;
+
+// Second medecin : abonnement IMPAYE (pour la demo de l'interface admin)
+const med2UserId = insertUser.run('medecin', 'Dr Omar Said', 'medecin2@demo.test', hash('demo1234')).lastInsertRowid;
+const doctor2Id = db.prepare(`
+  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut)
+  VALUES (?, 'Pediatrie', 'Cabinet du Lagon', '3 bd Maritime, Mutsamudu', '+269 33 98 765', 'impaye')
+`).run(med2UserId).lastInsertRowid;
 
 // --- Patients (dont un avec compte personnel) ---
 const patUserId = insertUser.run('patient', 'Yssouf Said', 'patient@demo.test', hash('demo1234')).lastInsertRowid;
@@ -63,6 +73,20 @@ const p3 = insertPatient.run({
   email: null, adresse: 'Mitsamiouli', contact_urgence: null,
   allergies: 'Aspirine', maladies_chroniques: null,
 }).lastInsertRowid;
+
+// Patients du second medecin (Dr Omar Said)
+insertPatient.run({
+  user_id: null, doctor_id: doctor2Id, nom: 'Combo', prenom: 'Inaya',
+  date_naissance: '2018-02-20', sexe: 'F', numero_identite: 'CNI-410022', telephone: '+269 44 22 880',
+  email: null, adresse: 'Mutsamudu', contact_urgence: 'Halima Combo +269 44 22 881',
+  allergies: null, maladies_chroniques: null,
+});
+insertPatient.run({
+  user_id: null, doctor_id: doctor2Id, nom: 'Bacar', prenom: 'Nassim',
+  date_naissance: '2015-11-03', sexe: 'M', numero_identite: 'CNI-410099', telephone: '+269 44 22 770',
+  email: null, adresse: 'Mutsamudu', contact_urgence: null,
+  allergies: null, maladies_chroniques: 'Asthme',
+});
 
 // --- Medicaments (catalogue du cabinet) ---
 const insertMed = db.prepare(`
@@ -139,5 +163,7 @@ db.prepare('INSERT INTO consultation_templates (doctor_id, nom, motif, contenu) 
 
 console.log('Donnees de demonstration inserees.');
 console.log('\nComptes de connexion (mot de passe : demo1234) :');
-console.log('  Medecin  -> medecin@demo.test');
+console.log('  Admin    -> admin@demo.test');
+console.log('  Medecin  -> medecin@demo.test   (abonnement paye)');
+console.log('  Medecin2 -> medecin2@demo.test  (abonnement impaye)');
 console.log('  Patient  -> patient@demo.test');

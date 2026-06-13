@@ -17,20 +17,23 @@ export function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      role          TEXT NOT NULL CHECK (role IN ('medecin','patient')),
+      role          TEXT NOT NULL CHECK (role IN ('admin','medecin','patient')),
       nom           TEXT NOT NULL,
       email         TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
+      active        INTEGER NOT NULL DEFAULT 1,   -- 0 = acces desactive par l'admin
+      last_seen     TEXT,                          -- derniere activite (pour "actif maintenant")
       created_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS doctors (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id         INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-      specialite      TEXT,
-      cabinet_nom     TEXT,
-      cabinet_adresse TEXT,
-      cabinet_tel     TEXT
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id          INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      specialite       TEXT,
+      cabinet_nom      TEXT,
+      cabinet_adresse  TEXT,
+      cabinet_tel      TEXT,
+      abonnement_statut TEXT NOT NULL DEFAULT 'impaye' CHECK (abonnement_statut IN ('paye','impaye'))
     );
 
     CREATE TABLE IF NOT EXISTS patients (
