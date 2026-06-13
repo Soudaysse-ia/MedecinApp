@@ -32,7 +32,6 @@ export default function Admin() {
   }, []);
 
   async function setAccess(d, active) { await api.patch(`/admin/doctors/${d.doctor_id}`, { active }); load(); }
-  async function setPaiement(d, statut) { await api.patch(`/admin/doctors/${d.doctor_id}`, { abonnement_statut: statut }); load(); }
 
   return (
     <div>
@@ -86,7 +85,6 @@ export default function Admin() {
                     <td>
                       <div className="row" style={{ gap: '.35rem' }}>
                         <button className="btn-sm" onClick={() => setOpenId(open ? null : d.doctor_id)}>{open ? 'Masquer' : 'Factures'}</button>
-                        <button className="btn-sm" onClick={() => setPaiement(d, paye ? 'impaye' : 'paye')}>{paye ? 'Marquer impayé' : 'Marquer payé'}</button>
                         {d.active
                           ? <button className="btn-sm btn-danger" onClick={() => setAccess(d, false)}>Désactiver</button>
                           : <button className="btn-sm btn-primary" onClick={() => setAccess(d, true)}>Réactiver</button>}
@@ -114,47 +112,96 @@ export default function Admin() {
   );
 }
 
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
 function Invoices({ doctorId, onChange }) {
   const [list, setList] = useState(null);
+  const [creating, setCreating] = useState(false);
+  // date de paiement choisie par facture (clé = id facture)
+  const [payDates, setPayDates] = useState({});
+  const blank = { date_emission: todayISO(), periode_debut: '', periode_fin: '', montant: '49', devise: 'EUR' };
+  const [form, setForm] = useState(blank);
+  const [error, setError] = useState('');
+
   function load() { api.get(`/admin/doctors/${doctorId}/invoices`).then(setList); }
   useEffect(() => { load(); }, [doctorId]);
 
-  async function mark(inv, statut) {
-    await api.patch(`/admin/invoices/${inv.id}`, { statut });
-    load(); onChange && onChange();
-  }
+  function refresh() { load(); onChange && onChange(); }
 
-  if (!list) return <p className="muted" style={{ padding: '.5rem' }}>Chargement des factures…</p>;
-  if (list.length === 0) return <p className="muted" style={{ padding: '.5rem' }}>Aucune facture.</p>;
+  async function create(e) {
+    e.preventDefault(); setError('');
+    try {
+      await api.post(`/admin/doctors/${doctorId}/invoices`, {
+        date_emission: form.date_emission,
+        periode_debut: form.periode_debut || null,
+        periode_fin: form.periode_fin || null,
+        montant: Number(form.montant),
+        devise: form.devise || 'EUR',
+      });
+      setForm(blank); setCreating(false); refresh();
+    } catch (err) { setError(err.message); }
+  }
+  async function markPaid(inv) {
+    await api.patch(`/admin/invoices/${inv.id}`, { statut: 'payee', date_paiement: payDates[inv.id] || todayISO() });
+    refresh();
+  }
+  async function markUnpaid(inv) { await api.patch(`/admin/invoices/${inv.id}`, { statut: 'impayee' }); refresh(); }
+  async function del(inv) { if (confirm(`Supprimer la facture ${inv.numero} ?`)) { await api.del(`/admin/invoices/${inv.id}`); refresh(); } }
 
   return (
-    <table style={{ margin: '.25rem 0' }}>
-      <thead><tr><th>N°</th><th>Émise le</th><th>Période</th><th>Montant</th><th>Statut</th><th></th></tr></thead>
-      <tbody>
-        {list.map((inv) => {
-          const payee = inv.statut === 'payee';
-          return (
-            <tr key={inv.id}>
-              <td>{inv.numero}</td>
-              <td>{formatDate(inv.date_emission)}</td>
-              <td className="muted">{inv.periode_debut ? `${formatDate(inv.periode_debut)} → ${formatDate(inv.periode_fin)}` : '—'}</td>
-              <td>{money(inv.montant, inv.devise)}</td>
-              <td>{payee
-                ? <span className="badge ok">Payée le {formatDate(inv.date_paiement)}</span>
-                : <span className="badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>À régler</span>}</td>
-              <td>
-                <div className="row" style={{ gap: '.35rem' }}>
-                  <button className="btn-sm" onClick={() => api.download(`/admin/invoices/${inv.id}/pdf`, `facture-${inv.numero}.pdf`).catch((e) => alert(e.message))}>⬇ PDF</button>
-                  {payee
-                    ? <button className="btn-sm" onClick={() => mark(inv, 'impayee')}>Annuler paiement</button>
-                    : <button className="btn-sm btn-primary" onClick={() => mark(inv, 'payee')}>Marquer payée</button>}
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div style={{ padding: '.25rem 0' }}>
+      <div className="row between" style={{ marginBottom: '.5rem' }}>
+        <strong style={{ fontSize: '.85rem' }}>Factures</strong>
+        <button className="btn-sm btn-primary" onClick={() => setCreating((c) => !c)}>{creating ? 'Annuler' : '+ Émettre une facture'}</button>
+      </div>
+
+      {creating && (
+        <form onSubmit={create} className="card" style={{ margin: '0 0 .75rem', background: 'var(--surface)' }}>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="field"><label>Date d'émission *</label><input type="date" value={form.date_emission} onChange={(e) => setForm({ ...form, date_emission: e.target.value })} required /></div>
+            <div className="field"><label>Période début</label><input type="date" value={form.periode_debut} onChange={(e) => setForm({ ...form, periode_debut: e.target.value })} /></div>
+            <div className="field"><label>Période fin</label><input type="date" value={form.periode_fin} onChange={(e) => setForm({ ...form, periode_fin: e.target.value })} /></div>
+            <div className="field"><label>Montant ({form.devise})</label><input type="number" step="0.01" min="0" value={form.montant} onChange={(e) => setForm({ ...form, montant: e.target.value })} required /></div>
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <button className="btn-primary btn-sm">Émettre la facture</button>
+        </form>
+      )}
+
+      {!list ? <p className="muted">Chargement des factures…</p> : list.length === 0 ? <p className="muted">Aucune facture.</p> : (
+        <table style={{ margin: 0 }}>
+          <thead><tr><th>N°</th><th>Émise le</th><th>Période</th><th>Montant</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody>
+            {list.map((inv) => {
+              const payee = inv.statut === 'payee';
+              return (
+                <tr key={inv.id}>
+                  <td>{inv.numero}</td>
+                  <td>{formatDate(inv.date_emission)}</td>
+                  <td className="muted">{inv.periode_debut ? `${formatDate(inv.periode_debut)} → ${formatDate(inv.periode_fin)}` : '—'}</td>
+                  <td>{money(inv.montant, inv.devise)}</td>
+                  <td>{payee
+                    ? <span className="badge ok">Payée le {formatDate(inv.date_paiement)}</span>
+                    : <span className="badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>À régler</span>}</td>
+                  <td>
+                    <div className="row" style={{ gap: '.35rem' }}>
+                      <button className="btn-sm" onClick={() => api.download(`/admin/invoices/${inv.id}/pdf`, `facture-${inv.numero}.pdf`).catch((e) => alert(e.message))}>⬇ PDF</button>
+                      {payee
+                        ? <button className="btn-sm" onClick={() => markUnpaid(inv)}>Annuler paiement</button>
+                        : <>
+                            <input type="date" value={payDates[inv.id] || todayISO()} onChange={(e) => setPayDates({ ...payDates, [inv.id]: e.target.value })} style={{ width: 'auto', padding: '.25rem .4rem' }} title="Date de paiement" />
+                            <button className="btn-sm btn-primary" onClick={() => markPaid(inv)}>Marquer payée</button>
+                          </>}
+                      <button className="btn-sm btn-danger" onClick={() => del(inv)}>×</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 

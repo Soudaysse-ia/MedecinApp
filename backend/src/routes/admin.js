@@ -7,6 +7,22 @@ const router = Router();
 // Interface proprietaire : reservee au role admin
 router.use(requireAuth, requireRole('admin'));
 
+// Le statut d'abonnement d'un medecin decoule de ses factures :
+// "impaye" s'il reste une facture ECHUE (date d'emission <= aujourd'hui) non reglee.
+// Les factures futures (ex. mois a venir) ne rendent pas le medecin impaye.
+function recomputeDoctorStatus(doctorId) {
+  const reste = db.prepare(
+    "SELECT COUNT(*) c FROM invoices WHERE doctor_id = ? AND statut = 'impayee' AND date_emission <= date('now')"
+  ).get(doctorId).c;
+  db.prepare('UPDATE doctors SET abonnement_statut = ? WHERE id = ?').run(reste > 0 ? 'impaye' : 'paye', doctorId);
+}
+
+// Genere un numero de facture du type FAC-YYYY-NNNN
+function nextInvoiceNumero(year) {
+  const n = db.prepare('SELECT COUNT(*) c FROM invoices').get().c + 1;
+  return `FAC-${year}-${String(n).padStart(4, '0')}`;
+}
+
 // Liste de tous les medecins avec : paiement, acces, nb de patients, derniere activite
 router.get('/doctors', (req, res) => {
   const rows = db.prepare(`
@@ -46,6 +62,26 @@ router.get('/doctors/:id/invoices', (req, res) => {
   res.json(db.prepare('SELECT * FROM invoices WHERE doctor_id = ? ORDER BY date_emission DESC').all(req.params.id));
 });
 
+// Emettre une nouvelle facture (l'admin choisit les dates et le montant)
+router.post('/doctors/:id/invoices', (req, res) => {
+  const doctor = db.prepare('SELECT id FROM doctors WHERE id = ?').get(req.params.id);
+  if (!doctor) return res.status(404).json({ error: 'Medecin introuvable' });
+
+  const { date_emission, periode_debut, periode_fin, montant, devise } = req.body;
+  if (!date_emission) return res.status(400).json({ error: "Date d'emission requise" });
+  const m = Number(montant);
+  if (!(m >= 0)) return res.status(400).json({ error: 'Montant invalide' });
+
+  const numero = (req.body.numero && String(req.body.numero).trim()) || nextInvoiceNumero(date_emission.slice(0, 4));
+  const info = db.prepare(`
+    INSERT INTO invoices (doctor_id, numero, date_emission, periode_debut, periode_fin, montant, devise, statut, date_paiement)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'impayee', NULL)
+  `).run(doctor.id, numero, date_emission, periode_debut || null, periode_fin || null, m, devise || 'EUR');
+
+  recomputeDoctorStatus(doctor.id);
+  res.status(201).json(db.prepare('SELECT * FROM invoices WHERE id = ?').get(info.lastInsertRowid));
+});
+
 // Telechargement d'une facture en PDF
 router.get('/invoices/:id/pdf', async (req, res) => {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
@@ -60,21 +96,49 @@ router.get('/invoices/:id/pdf', async (req, res) => {
   res.end(Buffer.from(bytes));
 });
 
-// Marque une facture payee / impayee, et recalcule le statut d'abonnement du medecin
+// Met a jour une facture : statut/date de paiement ET/OU dates + montant
 router.patch('/invoices/:id', (req, res) => {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!invoice) return res.status(404).json({ error: 'Facture introuvable' });
-  const statut = req.body.statut;
-  if (!['payee', 'impayee'].includes(statut)) return res.status(400).json({ error: 'Statut invalide' });
 
-  const datePaiement = statut === 'payee' ? (req.body.date_paiement || new Date().toISOString().slice(0, 10)) : null;
-  db.prepare('UPDATE invoices SET statut = ?, date_paiement = ? WHERE id = ?').run(statut, datePaiement, invoice.id);
+  const b = req.body;
+  // Champs editables (dates et montant choisis par l'admin)
+  const date_emission = b.date_emission ?? invoice.date_emission;
+  const periode_debut = b.periode_debut !== undefined ? b.periode_debut : invoice.periode_debut;
+  const periode_fin   = b.periode_fin   !== undefined ? b.periode_fin   : invoice.periode_fin;
+  const montant       = b.montant !== undefined ? Number(b.montant) : invoice.montant;
+  const devise        = b.devise ?? invoice.devise;
+  if (!(montant >= 0)) return res.status(400).json({ error: 'Montant invalide' });
 
-  // Le medecin est "paye" s'il ne reste aucune facture impayee
-  const reste = db.prepare("SELECT COUNT(*) c FROM invoices WHERE doctor_id = ? AND statut = 'impayee'").get(invoice.doctor_id).c;
-  db.prepare('UPDATE doctors SET abonnement_statut = ? WHERE id = ?').run(reste > 0 ? 'impaye' : 'paye', invoice.doctor_id);
+  // Statut + date de paiement (l'admin peut choisir la date)
+  let statut = invoice.statut;
+  let date_paiement = invoice.date_paiement;
+  if (b.statut !== undefined) {
+    if (!['payee', 'impayee'].includes(b.statut)) return res.status(400).json({ error: 'Statut invalide' });
+    statut = b.statut;
+    date_paiement = statut === 'payee'
+      ? (b.date_paiement || invoice.date_paiement || new Date().toISOString().slice(0, 10))
+      : null;
+  } else if (b.date_paiement !== undefined && statut === 'payee') {
+    date_paiement = b.date_paiement;
+  }
 
+  db.prepare(`
+    UPDATE invoices SET date_emission=?, periode_debut=?, periode_fin=?, montant=?, devise=?, statut=?, date_paiement=?
+    WHERE id=?
+  `).run(date_emission, periode_debut, periode_fin, montant, devise, statut, date_paiement, invoice.id);
+
+  recomputeDoctorStatus(invoice.doctor_id);
   res.json(db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id));
+});
+
+// Supprimer une facture
+router.delete('/invoices/:id', (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: 'Facture introuvable' });
+  db.prepare('DELETE FROM invoices WHERE id = ?').run(invoice.id);
+  recomputeDoctorStatus(invoice.doctor_id);
+  res.status(204).end();
 });
 
 // Statistiques globales pour l'en-tete du tableau de bord
@@ -95,16 +159,11 @@ router.patch('/doctors/:id', (req, res) => {
   const doctor = db.prepare('SELECT * FROM doctors WHERE id = ?').get(req.params.id);
   if (!doctor) return res.status(404).json({ error: 'Medecin introuvable' });
 
-  const { active, abonnement_statut } = req.body;
-
+  // Le statut de paiement decoule des factures (gere via les routes /invoices) :
+  // ici on ne gere que l'acces a la plateforme.
+  const { active } = req.body;
   if (active !== undefined) {
     db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, doctor.user_id);
-  }
-  if (abonnement_statut !== undefined) {
-    if (!['paye', 'impaye'].includes(abonnement_statut)) {
-      return res.status(400).json({ error: 'Statut de paiement invalide' });
-    }
-    db.prepare('UPDATE doctors SET abonnement_statut = ? WHERE id = ?').run(abonnement_statut, doctor.id);
   }
 
   const updated = db.prepare(`
