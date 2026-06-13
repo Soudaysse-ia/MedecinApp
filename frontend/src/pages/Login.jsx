@@ -45,7 +45,6 @@ export default function Login() {
           <strong>Comptes de démo</strong> (mot de passe <code>demo1234</code>) :
           <div style={{ marginTop: '.4rem', display: 'flex', flexDirection: 'column', gap: '.25rem' }}>
             <button className="btn-sm" onClick={() => quick('medecin@demo.test')}>👨‍⚕️ Médecin</button>
-            <button className="btn-sm" onClick={() => quick('secretaire@demo.test')}>🗂️ Secrétaire</button>
             <button className="btn-sm" onClick={() => quick('patient@demo.test')}>🧑 Patient</button>
           </div>
         </div>

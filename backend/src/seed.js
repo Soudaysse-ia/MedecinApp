@@ -13,7 +13,6 @@ db.exec(`
   DELETE FROM consultations;
   DELETE FROM medications;
   DELETE FROM patients;
-  DELETE FROM staff;
   DELETE FROM doctors;
   DELETE FROM users;
   DELETE FROM sqlite_sequence;
@@ -27,14 +26,11 @@ const insertUser = db.prepare(
 );
 
 const medUserId = insertUser.run('medecin', 'Dr Amina Bakary', 'medecin@demo.test', hash('demo1234')).lastInsertRowid;
-const secUserId = insertUser.run('secretaire', 'Sophie Martin', 'secretaire@demo.test', hash('demo1234')).lastInsertRowid;
 
 const doctorId = db.prepare(`
   INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel)
   VALUES (?, 'Medecine generale', 'Cabinet de la Place', '12 rue des Lilas, Moroni', '+269 33 12 345')
 `).run(medUserId).lastInsertRowid;
-
-db.prepare('INSERT INTO staff (user_id, doctor_id) VALUES (?, ?)').run(secUserId, doctorId);
 
 // --- Patients (dont un avec compte personnel) ---
 const patUserId = insertUser.run('patient', 'Yssouf Said', 'patient@demo.test', hash('demo1234')).lastInsertRowid;
@@ -121,7 +117,7 @@ const insertAppt = db.prepare(`
 `);
 const soon = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 16); // dans 24h
 insertAppt.run(p1, doctorId, soon, 'Controle tension', 'confirme', 'medecin');
-insertAppt.run(p2, doctorId, '2026-06-25T10:30', 'Suivi diabete', 'confirme', 'secretaire');
+insertAppt.run(p2, doctorId, '2026-06-25T10:30', 'Suivi diabete', 'confirme', 'medecin');
 insertAppt.run(p1, doctorId, '2026-07-02T09:00', 'Renouvellement ordonnance', 'demande', 'patient'); // demande a confirmer
 
 // --- Vaccinations ---
@@ -143,6 +139,5 @@ db.prepare('INSERT INTO consultation_templates (doctor_id, nom, motif, contenu) 
 
 console.log('Donnees de demonstration inserees.');
 console.log('\nComptes de connexion (mot de passe : demo1234) :');
-console.log('  Medecin     -> medecin@demo.test');
-console.log('  Secretaire  -> secretaire@demo.test');
-console.log('  Patient     -> patient@demo.test');
+console.log('  Medecin  -> medecin@demo.test');
+console.log('  Patient  -> patient@demo.test');

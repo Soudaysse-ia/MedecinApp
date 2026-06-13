@@ -134,10 +134,8 @@ function Consultations({ patient, isMedecin, onChange }) {
             <div className="field"><label>Date *</label><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></div>
             <div className="field"><label>Motif</label><input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} /></div>
           </div>
-          {isMedecin ? <>
-            <div className="field"><label>Diagnostic</label><input value={form.diagnostic} onChange={(e) => setForm({ ...form, diagnostic: e.target.value })} /></div>
-            <div className="field"><label>Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-          </> : <p className="pill-info">En tant que secrétaire, le diagnostic et les notes médicales sont réservés au médecin.</p>}
+          <div className="field"><label>Diagnostic</label><input value={form.diagnostic} onChange={(e) => setForm({ ...form, diagnostic: e.target.value })} /></div>
+          <div className="field"><label>Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
           <button className="btn-primary">Enregistrer</button>
         </form>
       )}

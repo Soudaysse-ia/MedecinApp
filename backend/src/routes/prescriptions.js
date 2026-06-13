@@ -7,7 +7,7 @@ import { buildOrdonnancePdf } from '../lib/pdf.js';
 import { logAudit } from '../lib/audit.js';
 
 const router = Router();
-router.use(requireAuth, requireRole('medecin', 'secretaire'));
+router.use(requireAuth, requireRole('medecin'));
 
 // Prescriptions en cours d'un patient (pour le controle d'interactions)
 function activePrescriptions(patientId, excludeId = null) {

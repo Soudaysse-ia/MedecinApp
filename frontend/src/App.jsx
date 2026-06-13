@@ -14,7 +14,7 @@ import PatientPortal from './pages/PatientPortal.jsx';
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const isStaff = user.role === 'medecin' || user.role === 'secretaire';
+  const isStaff = user.role === 'medecin';
   return (
     <nav className="sidebar">
       <div className="brand">🩺 Carnet Médical<small>Prototype — données fictives</small></div>
@@ -55,7 +55,7 @@ export default function App() {
   if (loading) return <div style={{ padding: '2rem' }}>Chargement…</div>;
   if (!user) return <Routes><Route path="*" element={<Login />} /></Routes>;
 
-  const isStaff = user.role === 'medecin' || user.role === 'secretaire';
+  const isStaff = user.role === 'medecin';
   const home = isStaff ? '/patients' : '/mon-dossier';
 
   return (

@@ -17,7 +17,7 @@ export function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      role          TEXT NOT NULL CHECK (role IN ('medecin','patient','secretaire')),
+      role          TEXT NOT NULL CHECK (role IN ('medecin','patient')),
       nom           TEXT NOT NULL,
       email         TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
@@ -31,13 +31,6 @@ export function initSchema() {
       cabinet_nom     TEXT,
       cabinet_adresse TEXT,
       cabinet_tel     TEXT
-    );
-
-    -- Une secretaire est rattachee a un medecin
-    CREATE TABLE IF NOT EXISTS staff (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id   INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-      doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS patients (
@@ -103,7 +96,7 @@ export function initSchema() {
       tension     TEXT,           -- ex: "120/80"
       temperature REAL,           -- degC
       glycemie    REAL,           -- g/L
-      saisi_par   TEXT,           -- 'medecin' | 'secretaire' | 'patient'
+      saisi_par   TEXT,           -- 'medecin' | 'patient'
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

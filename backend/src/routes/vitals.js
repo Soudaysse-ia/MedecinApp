@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../lib/auth.js';
 import { resolveDoctorId, patientBelongsToDoctor } from '../lib/context.js';
 
 const router = Router();
-router.use(requireAuth, requireRole('medecin', 'secretaire'));
+router.use(requireAuth, requireRole('medecin'));
 
 const schema = z.object({
   patient_id: z.number().int(),

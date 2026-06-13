@@ -24,7 +24,7 @@ const patientSchema = z.object({
 });
 
 // Toutes les routes ci-dessous sont reservees au personnel du cabinet
-router.use(requireAuth, requireRole('medecin', 'secretaire'));
+router.use(requireAuth, requireRole('medecin'));
 
 // Liste des patients du cabinet (recherche simple via ?q=)
 router.get('/', (req, res) => {
