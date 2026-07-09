@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
+import Icon from './components/Icons.jsx';
+import Avatar from './components/Avatar.jsx';
 import Login from './pages/Login.jsx';
+import Dashboard from './pages/Dashboard.jsx';
 import PatientList from './pages/PatientList.jsx';
 import PatientDetail from './pages/PatientDetail.jsx';
 import PatientForm from './pages/PatientForm.jsx';
@@ -12,28 +15,47 @@ import Audit from './pages/Audit.jsx';
 import Admin from './pages/Admin.jsx';
 import PatientPortal from './pages/PatientPortal.jsx';
 
+const ROLE_LABEL = { medecin: 'Médecin', patient: 'Patient', admin: 'Propriétaire' };
+
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const isStaff = user.role === 'medecin';
+  const isMedecin = user.role === 'medecin';
   return (
     <nav className="sidebar">
-      <div className="brand">🩺 Carnet Médical<small>Prototype — données fictives</small></div>
-      {isStaff && <>
-        <NavLink to="/patients">Patients</NavLink>
-        <NavLink to="/agenda">Agenda</NavLink>
-        <NavLink to="/recherche">Recherche & filtres</NavLink>
-        <NavLink to="/medicaments">Médicaments</NavLink>
-        <NavLink to="/modeles">Modèles</NavLink>
-        {user.role === 'medecin' && <NavLink to="/journal">Journal d'audit</NavLink>}
+      <div className="brand">
+        <span className="brand-mark"><Icon name="heart" size={17} strokeWidth={2} /></span>
+        <span>MedVault<small>Carnet médical — démo</small></span>
+      </div>
+
+      {isMedecin && <>
+        <span className="nav-label">Mon cabinet</span>
+        <NavLink to="/tableau-de-bord"><Icon name="dashboard" /> Tableau de bord</NavLink>
+        <NavLink to="/patients"><Icon name="patients" /> Patients</NavLink>
+        <NavLink to="/agenda"><Icon name="agenda" /> Agenda</NavLink>
+        <span className="nav-label">Outils</span>
+        <NavLink to="/recherche"><Icon name="search" /> Recherche</NavLink>
+        <NavLink to="/medicaments"><Icon name="pill" /> Médicaments</NavLink>
+        <NavLink to="/modeles"><Icon name="template" /> Modèles</NavLink>
+        <NavLink to="/journal"><Icon name="shield" /> Journal d'audit</NavLink>
       </>}
-      {user.role === 'patient' && <NavLink to="/mon-dossier">Mon dossier</NavLink>}
-      {user.role === 'admin' && <NavLink to="/admin">Administration</NavLink>}
+      {user.role === 'patient' && <>
+        <span className="nav-label">Mon espace</span>
+        <NavLink to="/mon-dossier"><Icon name="folder" /> Mon dossier</NavLink>
+      </>}
+      {user.role === 'admin' && <>
+        <span className="nav-label">Plateforme</span>
+        <NavLink to="/admin"><Icon name="shield" /> Administration</NavLink>
+      </>}
+
       <div className="spacer" />
-      <div className="who">{user.nom}<br /><span className="badge muted">{user.role}</span></div>
-      <button className="btn-sm" style={{ marginTop: '.5rem' }} onClick={() => { logout(); navigate('/login'); }}>
-        Se déconnecter
-      </button>
+      <div className="who">
+        <Avatar nom={user.nom.split(' ').pop()} prenom={user.nom.split(' ')[0].replace('Dr', '') || user.nom} size={32} />
+        <span className="who-txt">{user.nom}<small>{ROLE_LABEL[user.role] || user.role}</small></span>
+        <button className="icon-btn" title="Se déconnecter" onClick={() => { logout(); navigate('/login'); }}>
+          <Icon name="logout" size={16} />
+        </button>
+      </div>
     </nav>
   );
 }
@@ -44,7 +66,7 @@ function Shell({ children }) {
       <Sidebar />
       <main className="main">
         <div className="demo-banner">
-          ⚠️ Projet de démonstration — toutes les données sont <strong>fictives</strong>. Ne contient aucune donnée de santé réelle.
+          ⚠️ Démonstration — toutes les données sont <strong>fictives</strong>. Aucune donnée de santé réelle.
         </div>
         {children}
       </main>
@@ -57,14 +79,15 @@ export default function App() {
   if (loading) return <div style={{ padding: '2rem' }}>Chargement…</div>;
   if (!user) return <Routes><Route path="*" element={<Login />} /></Routes>;
 
-  const isStaff = user.role === 'medecin';
-  const home = user.role === 'admin' ? '/admin' : isStaff ? '/patients' : '/mon-dossier';
+  const isMedecin = user.role === 'medecin';
+  const home = user.role === 'admin' ? '/admin' : isMedecin ? '/tableau-de-bord' : '/mon-dossier';
 
   return (
     <Shell>
       <Routes>
         <Route path="/login" element={<Navigate to={home} replace />} />
-        {isStaff && <>
+        {isMedecin && <>
+          <Route path="/tableau-de-bord" element={<Dashboard />} />
           <Route path="/patients" element={<PatientList />} />
           <Route path="/patients/nouveau" element={<PatientForm />} />
           <Route path="/patients/:id" element={<PatientDetail />} />
@@ -73,7 +96,7 @@ export default function App() {
           <Route path="/medicaments" element={<Medications />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/modeles" element={<Templates />} />
-          {user.role === 'medecin' && <Route path="/journal" element={<Audit />} />}
+          <Route path="/journal" element={<Audit />} />
         </>}
         {user.role === 'patient' && <Route path="/mon-dossier" element={<PatientPortal />} />}
         {user.role === 'admin' && <Route path="/admin" element={<Admin />} />}

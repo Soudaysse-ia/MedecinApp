@@ -6,6 +6,8 @@ import { calcAge, formatDate, lines } from '../utils.js';
 import VitalsSection from '../components/VitalsSection.jsx';
 import VaccinationsSection from '../components/VaccinationsSection.jsx';
 import DocumentsSection from '../components/DocumentsSection.jsx';
+import Icon from '../components/Icons.jsx';
+import Avatar from '../components/Avatar.jsx';
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -41,7 +43,37 @@ export default function PatientDetail() {
         </div>
       </div>
 
-      <h1 style={{ marginTop: '.5rem' }}>{p.nom} {p.prenom}</h1>
+      {/* En-tete heros du patient */}
+      <div className="card patient-hero">
+        <Avatar nom={p.nom} prenom={p.prenom} size={64} />
+        <div className="hero-main">
+          <h1>{p.prenom} {p.nom}</h1>
+          <div className="chip-row">
+            {calcAge(p.date_naissance) != null && <span className="chip">{calcAge(p.date_naissance)} ans</span>}
+            {p.sexe && <span className="chip">{p.sexe === 'M' ? 'Homme' : p.sexe === 'F' ? 'Femme' : p.sexe}</span>}
+            {p.date_naissance && <span className="chip">Né(e) le {formatDate(p.date_naissance)}</span>}
+            {p.numero_identite && <span className="chip">{p.numero_identite}</span>}
+          </div>
+          <div className="hero-contacts">
+            {p.telephone && <span>📞 {p.telephone}</span>}
+            {p.email && <span>✉️ {p.email}</span>}
+            {p.adresse && <span>📍 {p.adresse}</span>}
+            {p.contact_urgence && <span title="Contact d'urgence">🆘 {p.contact_urgence}</span>}
+          </div>
+        </div>
+        <div className="hero-side">
+          <div className="field" style={{ marginBottom: '.5rem' }}>
+            <label>Maladies chroniques</label>
+            {chroniques.length ? chroniques.map((m, i) => <span key={i} className="tag-chip">{m}</span>) : <span className="muted">Aucune</span>}
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Dernière consultation</label>
+            {p.derniere_consultation
+              ? <span><strong>{formatDate(p.derniere_consultation.date)}</strong> — {p.derniere_consultation.motif || 'motif non précisé'}</span>
+              : <span className="muted">Aucune</span>}
+          </div>
+        </div>
+      </div>
 
       {/* Bandeau d'alerte allergies */}
       {allergies.length > 0 && (
@@ -51,35 +83,6 @@ export default function PatientDetail() {
         </div>
       )}
 
-      <div className="grid cols-2">
-        <div className="card">
-          <h2>Informations</h2>
-          <Info label="Âge" value={calcAge(p.date_naissance) != null ? `${calcAge(p.date_naissance)} ans` : '—'} />
-          <Info label="Date de naissance" value={formatDate(p.date_naissance)} />
-          <Info label="Sexe" value={p.sexe || '—'} />
-          <Info label="N° d'identité" value={p.numero_identite || '—'} />
-          <Info label="Téléphone" value={p.telephone || '—'} />
-          <Info label="Email" value={p.email || '—'} />
-          <Info label="Adresse" value={p.adresse || '—'} />
-          <Info label="Contact d'urgence" value={p.contact_urgence || '—'} />
-        </div>
-
-        <div className="card">
-          <h2>Dossier médical</h2>
-          <div className="field">
-            <label>Maladies chroniques</label>
-            {chroniques.length ? chroniques.map((m, i) => <span key={i} className="tag-chip">{m}</span>) : <span className="muted">Aucune</span>}
-          </div>
-          <div className="field">
-            <label>Dernière consultation</label>
-            {p.derniere_consultation
-              ? <div><strong>{formatDate(p.derniere_consultation.date)}</strong> — {p.derniere_consultation.motif || 'motif non précisé'}<br />
-                  <span className="muted">{p.derniere_consultation.diagnostic || ''}</span></div>
-              : <span className="muted">Aucune consultation enregistrée</span>}
-          </div>
-        </div>
-      </div>
-
       <Consultations patient={p} isMedecin={isMedecin} onChange={reload} />
       <Prescriptions patient={p} meds={meds} onChange={reload} />
       <VitalsSection patientId={p.id} mode="staff" />
@@ -87,10 +90,6 @@ export default function PatientDetail() {
       <DocumentsSection patientId={p.id} mode="staff" canDelete={isMedecin} />
     </div>
   );
-}
-
-function Info({ label, value }) {
-  return <div style={{ marginBottom: '.5rem' }}><div className="muted" style={{ fontSize: '.78rem' }}>{label}</div><div>{value}</div></div>;
 }
 
 function Consultations({ patient, isMedecin, onChange }) {

@@ -16,6 +16,7 @@ import documentRoutes from './routes/documents.js';
 import templateRoutes from './routes/templates.js';
 import auditRoutes from './routes/audit.js';
 import adminRoutes from './routes/admin.js';
+import dashboardRoutes from './routes/dashboard.js';
 import searchRoutes from './routes/search.js';
 import portalRoutes from './routes/portal.js';
 
@@ -39,6 +40,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
 
