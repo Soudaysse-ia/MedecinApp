@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { initSchema } from './db.js';
+import { enforceOverdueAccess } from './lib/billing.js';
 
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
@@ -46,6 +47,11 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Erreur serveur' });
 });
+
+// Desactivation automatique des medecins en impaye echu (fin de mois passee) :
+// au demarrage puis toutes les 6 heures. La reactivation reste manuelle (admin).
+enforceOverdueAccess();
+setInterval(enforceOverdueAccess, 6 * 3600 * 1000);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

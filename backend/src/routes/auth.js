@@ -4,6 +4,7 @@ import { z } from 'zod';
 import db from '../db.js';
 import { signToken, requireAuth } from '../lib/auth.js';
 import { resolveDoctorId, resolvePatientId } from '../lib/context.js';
+import { doctorHasOverdueInvoice } from '../lib/billing.js';
 
 const router = Router();
 
@@ -23,6 +24,16 @@ router.post('/login', (req, res) => {
   }
   if (!user.active) {
     return res.status(403).json({ error: 'Acces desactive. Contactez l\'administrateur pour regulariser votre abonnement.' });
+  }
+
+  // Verification a la connexion : un medecin avec une facture echue impayee
+  // est desactive immediatement (la reactivation est manuelle, cote admin).
+  if (user.role === 'medecin') {
+    const doc = db.prepare('SELECT id FROM doctors WHERE user_id = ?').get(user.id);
+    if (doc && doctorHasOverdueInvoice(doc.id)) {
+      db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(user.id);
+      return res.status(403).json({ error: 'Acces suspendu : facture impayee arrivee a echeance. Contactez l\'administrateur.' });
+    }
   }
 
   db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(user.id);
