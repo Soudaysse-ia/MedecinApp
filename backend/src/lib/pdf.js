@@ -15,7 +15,7 @@ export async function buildInvoicePdf({ invoice, doctor }) {
     page.drawText(String(s ?? ''), { x, y, size, font: f, color });
 
   // En-tete fournisseur (proprietaire de la plateforme)
-  t('Toibibou', M, 792, { size: 20, f: bold, color: blue });
+  t('Twabibu', M, 792, { size: 20, f: bold, color: blue });
   t('Plateforme de gestion de dossiers medicaux', M, 774, { size: 9, color: grey });
   t('contact@medvault.example  -  Demo / donnees fictives', M, 762, { size: 9, color: grey });
 
@@ -42,7 +42,7 @@ export async function buildInvoicePdf({ invoice, doctor }) {
 
   const periode = invoice.periode_debut && invoice.periode_fin
     ? `Periode du ${fmtFr(invoice.periode_debut)} au ${fmtFr(invoice.periode_fin)}` : '';
-  t('Abonnement Toibibou', M + 8, y, { size: 11, f: bold });
+  t('Abonnement Twabibu', M + 8, y, { size: 11, f: bold });
   if (periode) { y -= 14; t(periode, M + 8, y, { size: 9, color: grey }); }
   t(money(invoice.montant, invoice.devise), M + W - 90, y + (periode ? 14 : 0), { size: 11 });
 

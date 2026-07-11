@@ -26,7 +26,7 @@ function Sidebar() {
     <nav className="sidebar">
       <div className="brand">
         <span className="brand-mark"><Icon name="heart" size={17} strokeWidth={2} /></span>
-        <span>Toibibou<small>Carnet médical</small></span>
+        <span>Twabibu<small>Carnet médical</small></span>
       </div>
 
       {isMedecin && <>

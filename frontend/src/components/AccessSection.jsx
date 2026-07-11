@@ -36,7 +36,7 @@ export default function AccessSection({ patient, onChange }) {
   });
 
   function copy() {
-    navigator.clipboard?.writeText(`Espace patient Toibibou\nEmail : ${creds.email}\nMot de passe : ${creds.password}`);
+    navigator.clipboard?.writeText(`Espace patient Twabibu\nEmail : ${creds.email}\nMot de passe : ${creds.password}`);
   }
 
   return (

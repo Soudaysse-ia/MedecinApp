@@ -40,7 +40,7 @@ export default function Register() {
     return (
       <div className="login-wrap">
         <div className="card login-card">
-          <h1 style={{ fontSize: '1.3rem' }}>🩺 Toibibou</h1>
+          <h1 style={{ fontSize: '1.3rem' }}>🩺 Twabibu</h1>
           <div className="badge ok" style={{ marginBottom: '.75rem' }}>Compte créé</div>
           <p>
             Votre compte médecin a bien été créé. Il doit maintenant être <strong>validé par
@@ -58,7 +58,7 @@ export default function Register() {
   return (
     <div className="login-wrap">
       <div className="card login-card">
-        <h1 style={{ fontSize: '1.3rem' }}>🩺 Toibibou</h1>
+        <h1 style={{ fontSize: '1.3rem' }}>🩺 Twabibu</h1>
         <p className="muted" style={{ marginTop: 0 }}>Inscription médecin</p>
         <form onSubmit={submit}>
           <div className="field">
