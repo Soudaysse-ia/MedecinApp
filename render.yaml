@@ -12,7 +12,10 @@ services:
     region: frankfurt        # au plus pres des utilisateurs ; ajustez si besoin
     branch: main
     # Installe le frontend, le compile, puis installe le backend.
-    buildCommand: cd frontend && npm ci && npm run build && cd ../backend && npm ci
+    # npm install (et non npm ci) pour que npm resolve la bonne dependance
+    # native selon la plateforme (rollup/esbuild) — le package-lock genere sous
+    # macOS ne contient pas le binaire Linux, ce qui ferait echouer `npm ci`.
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
     # Seed uniquement si la base est vide, puis demarrage de l'API.
     startCommand: cd backend && npm run seed:if-empty && npm start
     healthCheckPath: /api/health
