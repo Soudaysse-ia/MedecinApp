@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { resolveDoctorId, patientBelongsToDoctor } from '../lib/context.js';
@@ -62,12 +64,79 @@ router.get('/:id', (req, res) => {
   ).all(patient.id);
 
   logAudit({ user: req.user, doctorId, action: 'consultation_fiche', cible: `patient #${patient.id} (${patient.nom} ${patient.prenom})` });
+
+  // Etat de l'acces a l'espace patient (compte lie)
+  const acces = patient.user_id
+    ? db.prepare('SELECT email, active, last_seen FROM users WHERE id = ?').get(patient.user_id) || null
+    : null;
+
   res.json({
     ...patient,
+    acces,
     derniere_consultation: consultations[0] || null,
     consultations,
     prescriptions,
   });
+});
+
+// --- Acces a l'espace patient (compte cree par le medecin) ---
+
+function generatePassword() {
+  // Mot de passe lisible : 10 caracteres sans ambiguite (0/O, 1/l...)
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.randomBytes(10)).map((b) => chars[b % chars.length]).join('');
+}
+
+// Donner l'acces : cree le compte patient et renvoie le mot de passe UNE SEULE FOIS
+router.post('/:id/access', (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ? AND doctor_id = ?').get(req.params.id, doctorId);
+  if (!patient) return res.status(404).json({ error: 'Patient introuvable' });
+  if (patient.user_id) return res.status(400).json({ error: 'Ce patient a deja un acces' });
+
+  const email = (req.body.email || patient.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email valide requis pour creer l\'acces' });
+  }
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
+    return res.status(400).json({ error: 'Un compte existe deja avec cet email' });
+  }
+
+  const password = generatePassword();
+  const info = db.prepare(
+    "INSERT INTO users (role, nom, email, password_hash) VALUES ('patient', ?, ?, ?)"
+  ).run(`${patient.prenom} ${patient.nom}`, email, bcrypt.hashSync(password, 10));
+  db.prepare('UPDATE patients SET user_id = ? WHERE id = ?').run(info.lastInsertRowid, patient.id);
+
+  logAudit({ user: req.user, doctorId, action: 'creation_acces_patient', cible: `patient #${patient.id} (${email})` });
+  res.status(201).json({ email, password }); // affiche une seule fois, non stocke en clair
+});
+
+// Reinitialiser le mot de passe : nouveau mot de passe renvoye UNE SEULE FOIS
+router.post('/:id/access/reset', (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ? AND doctor_id = ?').get(req.params.id, doctorId);
+  if (!patient || !patient.user_id) return res.status(404).json({ error: 'Aucun acces pour ce patient' });
+
+  const password = generatePassword();
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), patient.user_id);
+  const u = db.prepare('SELECT email FROM users WHERE id = ?').get(patient.user_id);
+
+  logAudit({ user: req.user, doctorId, action: 'reset_mdp_patient', cible: `patient #${patient.id}` });
+  res.json({ email: u.email, password });
+});
+
+// Revoquer l'acces : supprime le compte (le dossier medical est conserve)
+router.delete('/:id/access', (req, res) => {
+  const doctorId = resolveDoctorId(req.user);
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ? AND doctor_id = ?').get(req.params.id, doctorId);
+  if (!patient || !patient.user_id) return res.status(404).json({ error: 'Aucun acces pour ce patient' });
+
+  db.prepare('UPDATE patients SET user_id = NULL WHERE id = ?').run(patient.id);
+  db.prepare('DELETE FROM users WHERE id = ?').run(patient.user_id);
+
+  logAudit({ user: req.user, doctorId, action: 'revocation_acces_patient', cible: `patient #${patient.id}` });
+  res.status(204).end();
 });
 
 // Export PDF du dossier complet

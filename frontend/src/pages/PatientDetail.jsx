@@ -8,6 +8,7 @@ import VaccinationsSection from '../components/VaccinationsSection.jsx';
 import DocumentsSection from '../components/DocumentsSection.jsx';
 import Icon from '../components/Icons.jsx';
 import Avatar from '../components/Avatar.jsx';
+import AccessSection from '../components/AccessSection.jsx';
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -83,6 +84,7 @@ export default function PatientDetail() {
         </div>
       )}
 
+      <AccessSection patient={p} onChange={reload} />
       <Consultations patient={p} isMedecin={isMedecin} onChange={reload} />
       <Prescriptions patient={p} meds={meds} onChange={reload} />
       <VitalsSection patientId={p.id} mode="staff" />

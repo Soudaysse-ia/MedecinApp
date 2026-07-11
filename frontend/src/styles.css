@@ -710,6 +710,30 @@ tr:last-child td { border-bottom: none; }
 
 .hero-contacts { display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; font-size: .85rem; color: var(--text-dim); }
 
+/* ─── Encart identifiants (acces patient) ───────────────────── */
+.creds-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: var(--radius);
+  padding: .8rem 1rem;
+  margin: .6rem 0;
+  font-size: .88rem;
+  color: var(--ok);
+}
+.creds-line { margin-top: .25rem; color: var(--text); }
+.creds-box code {
+  background: #fff;
+  border: 1px solid var(--ok-border);
+  border-radius: 4px;
+  padding: .05rem .4rem;
+  font-weight: 700;
+  user-select: all;
+}
+
 /* ─── Responsive ────────────────────────────────────────────── */
 @media (max-width: 760px) {
   .app { flex-direction: column; }
