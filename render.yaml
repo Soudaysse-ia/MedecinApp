@@ -15,7 +15,9 @@ services:
     # npm install (et non npm ci) pour que npm resolve la bonne dependance
     # native selon la plateforme (rollup/esbuild) — le package-lock genere sous
     # macOS ne contient pas le binaire Linux, ce qui ferait echouer `npm ci`.
-    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    # --include=dev : force l'installation des devDependencies (vite, plugin react)
+    # meme si NODE_ENV=production, sinon `vite build` echoue (vite: not found).
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
     # Seed uniquement si la base est vide, puis demarrage de l'API.
     startCommand: cd backend && npm run seed:if-empty && npm start
     healthCheckPath: /api/health
