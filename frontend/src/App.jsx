@@ -61,11 +61,35 @@ function Sidebar() {
   );
 }
 
+function fmtFr(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Rappel de paiement : affiche a chaque connexion du medecin a partir de J-4,
+// tant que la facture n'est pas reglee (disparait des que l'admin la marque payee).
+function PaymentReminder() {
+  const { user, abonnement } = useAuth();
+  if (user.role !== 'medecin' || !abonnement?.rappel) return null;
+  const f = abonnement.facture;
+  const jours = abonnement.jours_restants;
+  return (
+    <div className="demo-banner" style={{ background: 'var(--warn-bg)', borderColor: 'var(--warn-border)', color: 'var(--warn)' }}>
+      ⏰ <strong>Rappel de paiement</strong> — votre abonnement arrive à échéance le{' '}
+      <strong>{fmtFr(abonnement.echeance)}</strong>{jours >= 0 ? ` (dans ${jours} jour${jours > 1 ? 's' : ''})` : ''}.
+      {f && <> Merci de régler la facture <strong>{f.numero}</strong> ({Number(f.montant).toFixed(2).replace('.', ',')} €)</>}
+      {' '}pour éviter la suspension de votre accès.
+    </div>
+  );
+}
+
 function Shell({ children }) {
   return (
     <div className="app">
       <Sidebar />
       <main className="main">
+        <PaymentReminder />
         {children}
       </main>
     </div>

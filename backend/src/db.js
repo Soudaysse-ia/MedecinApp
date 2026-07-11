@@ -33,7 +33,9 @@ export function initSchema() {
       cabinet_nom      TEXT,
       cabinet_adresse  TEXT,
       cabinet_tel      TEXT,
-      abonnement_statut TEXT NOT NULL DEFAULT 'impaye' CHECK (abonnement_statut IN ('paye','impaye'))
+      abonnement_statut TEXT NOT NULL DEFAULT 'impaye' CHECK (abonnement_statut IN ('paye','impaye')),
+      abonnement_debut TEXT,     -- date de 1ere connexion (debut d'abonnement)
+      echeance         TEXT      -- fin de la periode payee (J+30) ; passe -> suspension
     );
 
     CREATE TABLE IF NOT EXISTS patients (
@@ -193,6 +195,13 @@ function runMigrations() {
     // DEFAULT 'valide' : les medecins deja presents restent utilisables.
     // Les nouvelles inscriptions inserent explicitement 'en_attente'.
     db.exec("ALTER TABLE doctors ADD COLUMN statut TEXT NOT NULL DEFAULT 'valide'");
+  }
+  // Cycle d'abonnement J+30 : debut a la 1ere connexion, echeance = debut + 30j.
+  if (!cols.some((c) => c.name === 'abonnement_debut')) {
+    db.exec('ALTER TABLE doctors ADD COLUMN abonnement_debut TEXT');
+  }
+  if (!cols.some((c) => c.name === 'echeance')) {
+    db.exec('ALTER TABLE doctors ADD COLUMN echeance TEXT');
   }
 }
 

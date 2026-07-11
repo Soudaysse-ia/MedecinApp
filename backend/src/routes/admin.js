@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { buildInvoicePdf } from '../lib/pdf.js';
+import { extendOnPayment } from '../lib/billing.js';
 
 const router = Router();
 // Interface proprietaire : reservee au role admin
@@ -32,6 +33,8 @@ router.get('/doctors', (req, res) => {
       d.cabinet_nom,
       d.abonnement_statut,
       d.statut,
+      d.abonnement_debut,
+      d.echeance,
       u.id              AS user_id,
       u.nom,
       u.email,
@@ -122,6 +125,12 @@ router.patch('/invoices/:id', (req, res) => {
       : null;
   } else if (b.date_paiement !== undefined && statut === 'payee') {
     date_paiement = b.date_paiement;
+  }
+
+  // Paiement enregistre -> l'echeance d'abonnement est prolongee de 30 jours
+  // (la notification de rappel disparait alors cote portail medecin).
+  if (invoice.statut === 'impayee' && statut === 'payee') {
+    extendOnPayment(invoice.doctor_id);
   }
 
   db.prepare(`

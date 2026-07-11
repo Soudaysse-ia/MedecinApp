@@ -17,7 +17,7 @@ export async function buildInvoicePdf({ invoice, doctor }) {
   // En-tete fournisseur (proprietaire de la plateforme)
   t('Twabibu', M, 792, { size: 20, f: bold, color: blue });
   t('Plateforme de gestion de dossiers medicaux', M, 774, { size: 9, color: grey });
-  t('contact@medvault.example  -  Demo / donnees fictives', M, 762, { size: 9, color: grey });
+  t('soudaysse.said@gmail.com', M, 762, { size: 9, color: grey });
 
   // Bloc facture (a droite)
   t('FACTURE', M + W - 160, 792, { size: 18, f: bold });
@@ -62,7 +62,7 @@ export async function buildInvoicePdf({ invoice, doctor }) {
     t('Echeance : ' + fmtFr(invoice.date_emission), M + 90, y, { size: 10, color: grey });
   }
 
-  t('Document genere par un prototype - donnees fictives, sans valeur comptable.', M, 60, { size: 8, color: rgb(0.6, 0.6, 0.6) });
+  t('Facture generee par Twabibu - soudaysse.said@gmail.com', M, 60, { size: 8, color: rgb(0.6, 0.6, 0.6) });
   return await doc.save();
 }
 
@@ -146,7 +146,7 @@ export async function buildOrdonnancePdf({ doctor, patient, prescriptions, date 
   // --- Pied de page ---
   text('Signature et cachet du medecin', M + W - 200, 90, { size: 10, color: grey });
   page.drawLine({ start: { x: M + W - 200, y: 85 }, end: { x: M + W, y: 85 }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
-  text('Document genere par un prototype - donnees fictives, sans valeur medicale.', M, 50, { size: 8, color: rgb(0.6, 0.6, 0.6) });
+  text('Document genere par Twabibu.', M, 50, { size: 8, color: rgb(0.6, 0.6, 0.6) });
 
   return await doc.save();
 }
@@ -235,7 +235,7 @@ export async function buildDossierPdf({ doctor, patient, consultations, prescrip
   for (const d of documents) line(`${formatFr(d.date)} - [${d.type || 'autre'}] ${d.filename}`);
 
   ensure(30); y -= 10;
-  line('Document genere par un prototype - donnees fictives, sans valeur medicale.', { size: 8, color: rgb(0.6, 0.6, 0.6) });
+  line('Document genere par Twabibu.', { size: 8, color: rgb(0.6, 0.6, 0.6) });
   return await doc.save();
 }
 

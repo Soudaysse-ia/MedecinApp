@@ -110,6 +110,7 @@ export default function Admin() {
                       <span className={`badge ${paye ? 'ok' : ''}`} style={paye ? {} : { background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
                         {paye ? 'Payé' : 'Impayé'}
                       </span>
+                      {d.echeance && <><br /><span className="pill-info">échéance {formatDate(d.echeance)}</span></>}
                     </td>
                     <td>{d.dernier_paiement ? formatDate(d.dernier_paiement) : <span className="muted">—</span>}</td>
                     <td>

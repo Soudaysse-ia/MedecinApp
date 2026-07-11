@@ -4,7 +4,7 @@ import { z } from 'zod';
 import db from '../db.js';
 import { signToken, requireAuth } from '../lib/auth.js';
 import { resolveDoctorId, resolvePatientId } from '../lib/context.js';
-import { doctorHasOverdueInvoice } from '../lib/billing.js';
+import { initSubscription, subscriptionExpired, subscriptionInfo, ensureUpcomingInvoice } from '../lib/billing.js';
 
 const router = Router();
 
@@ -84,29 +84,38 @@ router.post('/login', (req, res) => {
     return res.status(403).json({ error: 'Acces desactive. Contactez l\'administrateur pour regulariser votre abonnement.' });
   }
 
-  // Verification a la connexion : un medecin avec une facture echue impayee
-  // est desactive immediatement (la reactivation est manuelle, cote admin).
+  // Cycle d'abonnement J+30 (medecin uniquement) :
+  // 1ere connexion -> demarre l'abonnement ; echeance depassee -> suspension.
+  let abonnement = null;
   if (user.role === 'medecin') {
     const doc = db.prepare('SELECT id FROM doctors WHERE user_id = ?').get(user.id);
-    if (doc && doctorHasOverdueInvoice(doc.id)) {
-      db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(user.id);
-      return res.status(403).json({ error: 'Acces suspendu : facture impayee arrivee a echeance. Contactez l\'administrateur.' });
+    if (doc) {
+      initSubscription(doc.id);
+      if (subscriptionExpired(doc.id)) {
+        db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(user.id);
+        return res.status(403).json({ error: 'Acces suspendu : abonnement arrive a echeance sans paiement. Contactez l\'administrateur. Vos donnees sont conservees.' });
+      }
+      ensureUpcomingInvoice(doc.id);
+      abonnement = subscriptionInfo(doc.id);
     }
   }
 
   db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(user.id);
   const token = signToken({ id: user.id, role: user.role, nom: user.nom });
-  res.json({ token, user: publicUser(user) });
+  res.json({ token, user: publicUser(user), abonnement });
 });
 
 // Renvoie l'utilisateur courant + ids de contexte (doctor_id / patient_id)
 router.get('/me', requireAuth, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  const doctorId = resolveDoctorId(req.user);
   res.json({
     user: publicUser(user),
-    doctorId: resolveDoctorId(req.user),
+    doctorId,
     patientId: resolvePatientId(req.user),
+    // Rappel de paiement affiche tant que la facture n'est pas reglee
+    abonnement: user.role === 'medecin' && doctorId ? subscriptionInfo(doctorId) : null,
   });
 });
 

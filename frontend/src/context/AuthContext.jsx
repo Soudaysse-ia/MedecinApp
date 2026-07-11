@@ -6,12 +6,19 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ctx, setCtx] = useState({ doctorId: null, patientId: null });
+  const [abonnement, setAbonnement] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  function applyMe(me) {
+    setUser(me.user);
+    setCtx({ doctorId: me.doctorId, patientId: me.patientId });
+    setAbonnement(me.abonnement || null);
+  }
 
   useEffect(() => {
     if (!getToken()) { setLoading(false); return; }
     api.get('/auth/me')
-      .then((data) => { setUser(data.user); setCtx({ doctorId: data.doctorId, patientId: data.patientId }); })
+      .then(applyMe)
       .catch(() => { setToken(null); })
       .finally(() => setLoading(false));
   }, []);
@@ -20,19 +27,24 @@ export function AuthProvider({ children }) {
     const data = await api.post('/auth/login', { email, password });
     setToken(data.token);
     const me = await api.get('/auth/me');
-    setUser(me.user);
-    setCtx({ doctorId: me.doctorId, patientId: me.patientId });
+    applyMe(me);
     return me.user;
+  }
+
+  // Re-verifie l'abonnement (utilise apres un paiement pour faire disparaitre le rappel)
+  async function refreshAbonnement() {
+    try { const me = await api.get('/auth/me'); setAbonnement(me.abonnement || null); } catch {}
   }
 
   function logout() {
     setToken(null);
     setUser(null);
     setCtx({ doctorId: null, patientId: null });
+    setAbonnement(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, ...ctx, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, ...ctx, abonnement, loading, login, logout, refreshAbonnement }}>
       {children}
     </AuthContext.Provider>
   );

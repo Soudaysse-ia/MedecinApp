@@ -30,17 +30,22 @@ insertUser.run('admin', 'Owner (Admin)', 'admin@demo.test', hash('demo1234'));
 
 const medUserId = insertUser.run('medecin', 'Dr Amina Bakary', 'medecin@demo.test', hash('demo1234')).lastInsertRowid;
 
-const doctorId = db.prepare(`
-  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut)
-  VALUES (?, 'Medecine generale', 'Cabinet de la Place', '12 rue des Lilas, Moroni', '+269 33 12 345', 'paye')
-`).run(medUserId).lastInsertRowid;
+// Dates d'abonnement relatives a aujourd'hui pour une demo parlante
+const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
-// Second medecin : abonnement IMPAYE (pour la demo de l'interface admin)
+// Dr Amina : abonnement demarre il y a 27 jours -> echeance dans 3 jours
+// (la banniere de rappel J-4 est visible, facture de juillet impayee)
+const doctorId = db.prepare(`
+  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut, abonnement_debut, echeance)
+  VALUES (?, 'Medecine generale', 'Cabinet de la Place', '12 rue des Lilas, Moroni', '+269 33 12 345', 'paye', ?, ?)
+`).run(medUserId, addDays(-27), addDays(3)).lastInsertRowid;
+
+// Dr Omar : echeance depassee depuis 10 jours -> suspension automatique
 const med2UserId = insertUser.run('medecin', 'Dr Omar Said', 'medecin2@demo.test', hash('demo1234')).lastInsertRowid;
 const doctor2Id = db.prepare(`
-  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut)
-  VALUES (?, 'Pediatrie', 'Cabinet du Lagon', '3 bd Maritime, Mutsamudu', '+269 33 98 765', 'impaye')
-`).run(med2UserId).lastInsertRowid;
+  INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, abonnement_statut, abonnement_debut, echeance)
+  VALUES (?, 'Pediatrie', 'Cabinet du Lagon', '3 bd Maritime, Mutsamudu', '+269 33 98 765', 'impaye', ?, ?)
+`).run(med2UserId, addDays(-40), addDays(-10)).lastInsertRowid;
 
 // --- Patients (dont un avec compte personnel) ---
 const patUserId = insertUser.run('patient', 'Yssouf Said', 'patient@demo.test', hash('demo1234')).lastInsertRowid;
