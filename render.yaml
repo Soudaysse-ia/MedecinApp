@@ -1,0 +1,39 @@
+# Blueprint Render — deploiement mono-service de "Carnet Medical".
+# Un seul service web : Express sert l'API (/api/*) ET le frontend React compile.
+# La base SQLite vit sur un disque persistant pour survivre aux redeploiements.
+#
+# Deploiement : poussez ce repo sur GitHub, puis dans Render :
+#   New + -> Blueprint -> selectionnez le repo. Render lit ce fichier.
+services:
+  - type: web
+    name: carnet-medical
+    runtime: node
+    plan: starter            # "free" possible, mais le disque persistant exige un plan payant
+    region: frankfurt        # au plus pres des utilisateurs ; ajustez si besoin
+    branch: main
+    # Installe le frontend, le compile, puis installe le backend.
+    buildCommand: cd frontend && npm ci && npm run build && cd ../backend && npm ci
+    # Seed uniquement si la base est vide, puis demarrage de l'API.
+    startCommand: cd backend && npm run seed:if-empty && npm start
+    healthCheckPath: /api/health
+    # Disque persistant pour le fichier SQLite (sinon perdu a chaque deploiement).
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Chemin de la base sur le disque persistant (lu par backend/src/db.js).
+      - key: DB_PATH
+        value: /var/data/data.sqlite
+      # Secret JWT genere automatiquement et garde par Render (ne PAS committer).
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      # Mono-service : le front est servi sur la meme origine, CORS non requis.
+      - key: CORS_ORIGIN
+        value: "*"

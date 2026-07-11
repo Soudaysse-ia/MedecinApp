@@ -1,8 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { initSchema } from './db.js';
 import { enforceOverdueAccess } from './lib/billing.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
@@ -43,6 +48,20 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
+
+// --- Service du frontend (build Vite) en production ---
+// Deploiement mono-service : Express sert l'app React compilee (frontend/dist)
+// et renvoie index.html pour toute route non-API (routage cote client).
+const FRONTEND_DIST = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+if (fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  });
+  console.log(`Frontend servi depuis ${FRONTEND_DIST}`);
+} else {
+  console.log('frontend/dist introuvable : mode API seule (lancez `npm run build` cote frontend).');
+}
 
 // Gestion d'erreur generique
 app.use((err, req, res, next) => {
