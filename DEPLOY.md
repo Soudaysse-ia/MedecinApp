@@ -52,14 +52,37 @@ voulu : la base de démo sera régénérée au premier démarrage sur le disque 
 Première mise en ligne : ~2–4 min. L'URL publique ressemble à
 `https://carnet-medical.onrender.com`.
 
+## Compte propriétaire (owner) — variables secrètes
+
+L'application n'a plus de comptes de démonstration. Le compte owner (admin) est
+créé au démarrage à partir de variables d'environnement **définies dans le
+dashboard Render** (jamais dans le code) :
+
+| Variable | Rôle |
+|---|---|
+| `ADMIN_EMAIL` | email de connexion de l'owner |
+| `ADMIN_PASSWORD` | mot de passe de l'owner (secret) |
+| `ADMIN_NOM` | nom affiché (optionnel) |
+| `ADMIN_RESET_PASSWORD` | mettre `1` le temps d'un déploiement pour changer le mot de passe owner, puis remettre à vide |
+
+Dans Render : service **carnet-medical** → **Environment** → renseignez
+`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOM`, puis **Save**. Au premier
+démarrage avec ces valeurs, le compte owner est créé et **les comptes de démo
+sont supprimés**.
+
 ## Étape 3 — Vérifier
 
 - `https://<votre-url>/api/health` → `{"ok":true,"demo":true}`
 - Ouvrez l'URL racine → écran de connexion.
-- Connectez-vous (mot de passe commun **`demo1234`**) :
-  - Admin → `admin@demo.test`
-  - Médecin → `medecin@demo.test`
-  - Patient → `patient@demo.test`
+- Connectez-vous avec vos identifiants owner (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+- Un médecin s'inscrit via **« Créer un compte »** → il apparaît dans
+  l'Administration (owner) → **Valider** ou **Refuser**. Tant qu'il n'est pas
+  validé, il ne peut pas se connecter.
+
+## Repartir d'une base vierge
+
+Depuis le **Shell** du service Render : `cd backend && npm run reset`
+(vide tout ; le compte owner est recréé au redémarrage suivant).
 
 ## Mises à jour
 

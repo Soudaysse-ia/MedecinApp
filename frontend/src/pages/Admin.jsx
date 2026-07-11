@@ -32,6 +32,14 @@ export default function Admin() {
   }, []);
 
   async function setAccess(d, active) { await api.patch(`/admin/doctors/${d.doctor_id}`, { active }); load(); }
+  async function setStatut(d, statut) {
+    if (statut === 'refuse' && !confirm(`Refuser l'inscription de ${d.nom} ?`)) return;
+    await api.patch(`/admin/doctors/${d.doctor_id}`, { statut });
+    load();
+  }
+
+  const pending = doctors.filter((d) => d.statut === 'en_attente');
+  const visibleDoctors = doctors.filter((d) => d.statut !== 'en_attente');
 
   return (
     <div>
@@ -42,12 +50,40 @@ export default function Admin() {
       <p className="muted">Suivi des médecins, abonnements, facturation et accès à la plateforme.</p>
 
       {stats && (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: '1.4rem' }}>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: '1.4rem' }}>
           <Stat label="Médecins" value={stats.totalDoctors} />
+          <Stat label="En attente" value={stats.enAttente ?? 0} accent={stats.enAttente ? 'warn' : undefined} />
           <Stat label="En ligne" value={stats.enLigne} accent="ok" />
           <Stat label="Accès actifs" value={stats.actifs} />
           <Stat label="Abonnements payés" value={`${stats.payes}/${stats.totalDoctors}`} />
           <Stat label="Patients (total)" value={stats.totalPatients} />
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--accent)', marginBottom: '1.4rem' }}>
+          <div className="row between" style={{ marginBottom: '.6rem' }}>
+            <strong>🕓 Demandes d'inscription à valider ({pending.length})</strong>
+          </div>
+          <table style={{ margin: 0 }}>
+            <thead><tr><th>Médecin</th><th>Spécialité</th><th>Cabinet</th><th>Inscrit le</th><th>Actions</th></tr></thead>
+            <tbody>
+              {pending.map((d) => (
+                <tr key={d.doctor_id}>
+                  <td><strong>{d.nom}</strong><br /><span className="pill-info">{d.email}</span></td>
+                  <td>{d.specialite || <span className="muted">—</span>}</td>
+                  <td>{d.cabinet_nom || <span className="muted">—</span>}</td>
+                  <td>{d.created_at ? formatDate(d.created_at) : <span className="muted">—</span>}</td>
+                  <td>
+                    <div className="row" style={{ gap: '.35rem' }}>
+                      <button className="btn-sm btn-primary" onClick={() => setStatut(d, 'valide')}>✓ Valider</button>
+                      <button className="btn-sm btn-danger" onClick={() => setStatut(d, 'refuse')}>✕ Refuser</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -59,11 +95,12 @@ export default function Admin() {
             </tr>
           </thead>
           <tbody>
-            {doctors.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: '1rem' }}>Aucun médecin.</td></tr>}
-            {doctors.map((d) => {
+            {visibleDoctors.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: '1rem' }}>Aucun médecin validé.</td></tr>}
+            {visibleDoctors.map((d) => {
               const seen = lastSeenLabel(d.last_seen);
               const paye = d.abonnement_statut === 'paye';
               const open = openId === d.doctor_id;
+              const refuse = d.statut === 'refuse';
               return (
                 <Fragment key={d.doctor_id}>
                   <tr>
@@ -81,13 +118,19 @@ export default function Admin() {
                         : <span className="muted">À jour</span>}
                     </td>
                     <td>{seen.online ? <span style={{ color: 'var(--ok)', fontWeight: 600 }}>● {seen.txt}</span> : <span className="muted">{seen.txt}</span>}</td>
-                    <td><span className={`badge ${d.active ? 'ok' : 'muted'}`}>{d.active ? 'Actif' : 'Désactivé'}</span></td>
+                    <td>
+                      {refuse
+                        ? <span className="badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>Refusé</span>
+                        : <span className={`badge ${d.active ? 'ok' : 'muted'}`}>{d.active ? 'Actif' : 'Désactivé'}</span>}
+                    </td>
                     <td>
                       <div className="row" style={{ gap: '.35rem' }}>
                         <button className="btn-sm" onClick={() => setOpenId(open ? null : d.doctor_id)}>{open ? 'Masquer' : 'Factures'}</button>
-                        {d.active
-                          ? <button className="btn-sm btn-danger" onClick={() => setAccess(d, false)}>Désactiver</button>
-                          : <button className="btn-sm btn-primary" onClick={() => setAccess(d, true)}>Réactiver</button>}
+                        {refuse
+                          ? <button className="btn-sm btn-primary" onClick={() => setStatut(d, 'valide')}>Valider</button>
+                          : d.active
+                            ? <button className="btn-sm btn-danger" onClick={() => setAccess(d, false)}>Désactiver</button>
+                            : <button className="btn-sm btn-primary" onClick={() => setAccess(d, true)}>Réactiver</button>}
                       </div>
                     </td>
                   </tr>
@@ -206,9 +249,10 @@ function Invoices({ doctorId, onChange }) {
 }
 
 function Stat({ label, value, accent }) {
+  const color = accent === 'ok' ? 'var(--ok)' : accent === 'warn' ? 'var(--danger)' : 'var(--accent)';
   return (
     <div className="card" style={{ margin: 0, padding: '1rem 1.1rem' }}>
-      <div style={{ fontSize: '1.7rem', fontWeight: 700, color: accent === 'ok' ? 'var(--ok)' : 'var(--accent)' }}>{value}</div>
+      <div style={{ fontSize: '1.7rem', fontWeight: 700, color }}>{value}</div>
       <div className="muted" style={{ fontSize: '.78rem' }}>{label}</div>
     </div>
   );

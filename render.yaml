@@ -18,8 +18,9 @@ services:
     # --include=dev : force l'installation des devDependencies (vite, plugin react)
     # meme si NODE_ENV=production, sinon `vite build` echoue (vite: not found).
     buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
-    # Seed uniquement si la base est vide, puis demarrage de l'API.
-    startCommand: cd backend && npm run seed:if-empty && npm start
+    # Amorcage de production (cree/maj le compte owner, supprime les comptes demo),
+    # puis demarrage de l'API. Aucune donnee fictive n'est inseree.
+    startCommand: cd backend && npm run bootstrap && npm start
     healthCheckPath: /api/health
     # Disque persistant pour le fichier SQLite (sinon perdu a chaque deploiement).
     disk:
@@ -42,3 +43,15 @@ services:
       # Mono-service : le front est servi sur la meme origine, CORS non requis.
       - key: CORS_ORIGIN
         value: "*"
+      # --- Compte proprietaire (owner) ---
+      # Valeurs a saisir dans le dashboard Render (jamais dans le code / git).
+      # sync: false => Render demande la valeur et la garde comme secret.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NOM
+        sync: false
+      # Mettre a 1 le temps d'un deploiement pour reinitialiser le mot de passe owner.
+      - key: ADMIN_RESET_PASSWORD
+        sync: false

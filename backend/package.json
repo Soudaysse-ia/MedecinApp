@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/seed.js",
-    "seed:if-empty": "node src/seed-if-empty.js"
+    "seed:if-empty": "node src/seed-if-empty.js",
+    "bootstrap": "node src/bootstrap.js",
+    "reset": "node src/reset.js"
   },
   "engines": {
     "node": ">=22.5.0"

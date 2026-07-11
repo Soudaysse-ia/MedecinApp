@@ -13,6 +13,52 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+const registerSchema = z.object({
+  nom: z.string().trim().min(2, 'Nom trop court'),
+  email: z.string().email(),
+  password: z.string().min(8, 'Mot de passe : 8 caracteres minimum'),
+  specialite: z.string().trim().optional(),
+  cabinet_nom: z.string().trim().optional(),
+  cabinet_adresse: z.string().trim().optional(),
+  cabinet_tel: z.string().trim().optional(),
+});
+
+// Inscription d'un medecin. Le compte est cree "en_attente" : il ne pourra se
+// connecter qu'une fois valide par l'administrateur (owner).
+router.post('/register', (req, res) => {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Formulaire invalide', details: parsed.error.flatten().fieldErrors });
+  }
+  const { nom, email, password, specialite, cabinet_nom, cabinet_adresse, cabinet_tel } = parsed.data;
+  const em = email.toLowerCase().trim();
+
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(em)) {
+    return res.status(409).json({ error: 'Un compte existe deja avec cet email.' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.exec('BEGIN');
+  try {
+    const info = db.prepare(
+      "INSERT INTO users (role, nom, email, password_hash, active) VALUES ('medecin', ?, ?, ?, 1)"
+    ).run(nom, em, hash);
+    db.prepare(`
+      INSERT INTO doctors (user_id, specialite, cabinet_nom, cabinet_adresse, cabinet_tel, statut, abonnement_statut)
+      VALUES (?, ?, ?, ?, ?, 'en_attente', 'impaye')
+    `).run(info.lastInsertRowid, specialite || null, cabinet_nom || null, cabinet_adresse || null, cabinet_tel || null);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  res.status(201).json({
+    ok: true,
+    message: "Compte cree. Il sera actif apres validation par l'administrateur.",
+  });
+});
+
 router.post('/login', (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Email ou mot de passe manquant' });
@@ -22,6 +68,18 @@ router.post('/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Identifiants incorrects' });
   }
+
+  // Un medecin doit avoir ete valide par l'administrateur avant de se connecter.
+  if (user.role === 'medecin') {
+    const d = db.prepare('SELECT statut FROM doctors WHERE user_id = ?').get(user.id);
+    if (d && d.statut === 'en_attente') {
+      return res.status(403).json({ error: "Votre compte est en attente de validation par l'administrateur." });
+    }
+    if (d && d.statut === 'refuse') {
+      return res.status(403).json({ error: "Votre inscription a ete refusee. Contactez l'administrateur." });
+    }
+  }
+
   if (!user.active) {
     return res.status(403).json({ error: 'Acces desactive. Contactez l\'administrateur pour regulariser votre abonnement.' });
   }

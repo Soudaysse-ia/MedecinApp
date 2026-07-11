@@ -178,6 +178,22 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
     CREATE INDEX IF NOT EXISTS idx_medications_doctor ON medications(doctor_id);
   `);
+
+  runMigrations();
+}
+
+// Migrations legeres (idempotentes) pour les bases deja existantes.
+function runMigrations() {
+  // Statut de validation d'un medecin par l'administrateur :
+  //   en_attente -> vient de s'inscrire, ne peut pas se connecter
+  //   valide     -> approuve par l'owner, acces autorise
+  //   refuse     -> inscription rejetee
+  const cols = db.prepare('PRAGMA table_info(doctors)').all();
+  if (!cols.some((c) => c.name === 'statut')) {
+    // DEFAULT 'valide' : les medecins deja presents restent utilisables.
+    // Les nouvelles inscriptions inserent explicitement 'en_attente'.
+    db.exec("ALTER TABLE doctors ADD COLUMN statut TEXT NOT NULL DEFAULT 'valide'");
+  }
 }
 
 export default db;

@@ -31,6 +31,7 @@ router.get('/doctors', (req, res) => {
       d.specialite,
       d.cabinet_nom,
       d.abonnement_statut,
+      d.statut,
       u.id              AS user_id,
       u.nom,
       u.email,
@@ -151,7 +152,8 @@ router.get('/stats', (req, res) => {
   const enLigne = db.prepare(
     "SELECT COUNT(*) c FROM users WHERE role='medecin' AND last_seen >= datetime('now','-5 minutes')"
   ).get().c;
-  res.json({ totalDoctors, actifs, payes, totalPatients, enLigne });
+  const enAttente = db.prepare("SELECT COUNT(*) c FROM doctors WHERE statut='en_attente'").get().c;
+  res.json({ totalDoctors, actifs, payes, totalPatients, enLigne, enAttente });
 });
 
 // Met a jour l'acces et/ou le statut de paiement d'un medecin
@@ -159,15 +161,21 @@ router.patch('/doctors/:id', (req, res) => {
   const doctor = db.prepare('SELECT * FROM doctors WHERE id = ?').get(req.params.id);
   if (!doctor) return res.status(404).json({ error: 'Medecin introuvable' });
 
-  // Le statut de paiement decoule des factures (gere via les routes /invoices) :
-  // ici on ne gere que l'acces a la plateforme.
-  const { active } = req.body;
+  // Le statut de paiement decoule des factures (gere via les routes /invoices).
+  // Ici on gere : l'acces a la plateforme (active) et la validation (statut).
+  const { active, statut } = req.body;
   if (active !== undefined) {
     db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, doctor.user_id);
   }
+  if (statut !== undefined) {
+    if (!['en_attente', 'valide', 'refuse'].includes(statut)) {
+      return res.status(400).json({ error: 'Statut invalide' });
+    }
+    db.prepare('UPDATE doctors SET statut = ? WHERE id = ?').run(statut, doctor.id);
+  }
 
   const updated = db.prepare(`
-    SELECT d.id AS doctor_id, d.abonnement_statut, u.active, u.nom
+    SELECT d.id AS doctor_id, d.abonnement_statut, d.statut, u.active, u.nom
     FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id = ?
   `).get(doctor.id);
   res.json(updated);

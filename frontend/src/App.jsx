@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import Icon from './components/Icons.jsx';
 import Avatar from './components/Avatar.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import PatientList from './pages/PatientList.jsx';
 import PatientDetail from './pages/PatientDetail.jsx';
@@ -25,7 +26,7 @@ function Sidebar() {
     <nav className="sidebar">
       <div className="brand">
         <span className="brand-mark"><Icon name="heart" size={17} strokeWidth={2} /></span>
-        <span>MedVault<small>Carnet médical — démo</small></span>
+        <span>MedVault<small>Carnet médical</small></span>
       </div>
 
       {isMedecin && <>
@@ -65,9 +66,6 @@ function Shell({ children }) {
     <div className="app">
       <Sidebar />
       <main className="main">
-        <div className="demo-banner">
-          ⚠️ Démonstration — toutes les données sont <strong>fictives</strong>. Aucune donnée de santé réelle.
-        </div>
         {children}
       </main>
     </div>
@@ -77,7 +75,12 @@ function Shell({ children }) {
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: '2rem' }}>Chargement…</div>;
-  if (!user) return <Routes><Route path="*" element={<Login />} /></Routes>;
+  if (!user) return (
+    <Routes>
+      <Route path="/inscription" element={<Register />} />
+      <Route path="*" element={<Login />} />
+    </Routes>
+  );
 
   const isMedecin = user.role === 'medecin';
   const home = user.role === 'admin' ? '/admin' : isMedecin ? '/tableau-de-bord' : '/mon-dossier';

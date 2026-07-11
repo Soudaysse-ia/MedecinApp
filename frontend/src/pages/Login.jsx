@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
@@ -20,13 +21,11 @@ export default function Login() {
     }
   }
 
-  function quick(em) { setEmail(em); setPassword('demo1234'); }
-
   return (
     <div className="login-wrap">
       <div className="card login-card">
         <h1 style={{ fontSize: '1.3rem' }}>🩺 Carnet Médical</h1>
-        <p className="muted" style={{ marginTop: 0 }}>Connexion — prototype de démonstration</p>
+        <p className="muted" style={{ marginTop: 0 }}>Connexion</p>
         <form onSubmit={submit}>
           <div className="field">
             <label>Email</label>
@@ -41,14 +40,9 @@ export default function Login() {
             {busy ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
-        <div className="demo-accounts">
-          <strong>Comptes de démo</strong> (mot de passe <code>demo1234</code>) :
-          <div style={{ marginTop: '.4rem', display: 'flex', flexDirection: 'column', gap: '.25rem' }}>
-            <button className="btn-sm" onClick={() => quick('admin@demo.test')}>🛡️ Admin (propriétaire)</button>
-            <button className="btn-sm" onClick={() => quick('medecin@demo.test')}>👨‍⚕️ Médecin</button>
-            <button className="btn-sm" onClick={() => quick('patient@demo.test')}>🧑 Patient</button>
-          </div>
-        </div>
+        <p className="muted" style={{ marginTop: '1rem', textAlign: 'center' }}>
+          Vous êtes médecin ? <Link to="/inscription">Créer un compte</Link>
+        </p>
       </div>
     </div>
   );
