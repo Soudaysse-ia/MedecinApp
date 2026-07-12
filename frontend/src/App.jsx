@@ -29,25 +29,27 @@ function Sidebar() {
         <span>Twabibu<small>Carnet médical</small></span>
       </div>
 
-      {isMedecin && <>
-        <span className="nav-label">Mon cabinet</span>
-        <NavLink to="/tableau-de-bord"><Icon name="dashboard" /> Tableau de bord</NavLink>
-        <NavLink to="/patients"><Icon name="patients" /> Patients</NavLink>
-        <NavLink to="/agenda"><Icon name="agenda" /> Agenda</NavLink>
-        <span className="nav-label">Outils</span>
-        <NavLink to="/recherche"><Icon name="search" /> Recherche</NavLink>
-        <NavLink to="/medicaments"><Icon name="pill" /> Médicaments</NavLink>
-        <NavLink to="/modeles"><Icon name="template" /> Modèles</NavLink>
-        <NavLink to="/journal"><Icon name="shield" /> Journal d'audit</NavLink>
-      </>}
-      {user.role === 'patient' && <>
-        <span className="nav-label">Mon espace</span>
-        <NavLink to="/mon-dossier"><Icon name="folder" /> Mon dossier</NavLink>
-      </>}
-      {user.role === 'admin' && <>
-        <span className="nav-label">Plateforme</span>
-        <NavLink to="/admin"><Icon name="shield" /> Administration</NavLink>
-      </>}
+      <div className="nav-links">
+        {isMedecin && <>
+          <span className="nav-label">Mon cabinet</span>
+          <NavLink to="/tableau-de-bord"><Icon name="dashboard" /><span className="nav-txt">Accueil</span></NavLink>
+          <NavLink to="/patients"><Icon name="patients" /><span className="nav-txt">Patients</span></NavLink>
+          <NavLink to="/agenda"><Icon name="agenda" /><span className="nav-txt">Agenda</span></NavLink>
+          <span className="nav-label">Outils</span>
+          <NavLink to="/recherche"><Icon name="search" /><span className="nav-txt">Recherche</span></NavLink>
+          <NavLink to="/medicaments"><Icon name="pill" /><span className="nav-txt">Médicaments</span></NavLink>
+          <NavLink to="/modeles"><Icon name="template" /><span className="nav-txt">Modèles</span></NavLink>
+          <NavLink to="/journal"><Icon name="shield" /><span className="nav-txt">Audit</span></NavLink>
+        </>}
+        {user.role === 'patient' && <>
+          <span className="nav-label">Mon espace</span>
+          <NavLink to="/mon-dossier"><Icon name="folder" /><span className="nav-txt">Mon dossier</span></NavLink>
+        </>}
+        {user.role === 'admin' && <>
+          <span className="nav-label">Plateforme</span>
+          <NavLink to="/admin"><Icon name="shield" /><span className="nav-txt">Administration</span></NavLink>
+        </>}
+      </div>
 
       <div className="spacer" />
       <div className="who">

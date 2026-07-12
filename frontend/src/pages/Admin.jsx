@@ -50,7 +50,7 @@ export default function Admin() {
       <p className="muted">Suivi des médecins, abonnements, facturation et accès à la plateforme.</p>
 
       {stats && (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: '1.4rem' }}>
+        <div className="stat-row">
           <Stat label="Médecins" value={stats.totalDoctors} />
           <Stat label="En attente" value={stats.enAttente ?? 0} accent={stats.enAttente ? 'warn' : undefined} />
           <Stat label="En ligne" value={stats.enLigne} accent="ok" />
@@ -201,7 +201,7 @@ function Invoices({ doctorId, onChange }) {
 
       {creating && (
         <form onSubmit={create} className="card" style={{ margin: '0 0 .75rem', background: 'var(--surface)' }}>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          <div className="grid cols-4">
             <div className="field"><label>Date d'émission *</label><input type="date" value={form.date_emission} onChange={(e) => setForm({ ...form, date_emission: e.target.value })} required /></div>
             <div className="field"><label>Période début</label><input type="date" value={form.periode_debut} onChange={(e) => setForm({ ...form, periode_debut: e.target.value })} /></div>
             <div className="field"><label>Période fin</label><input type="date" value={form.periode_fin} onChange={(e) => setForm({ ...form, periode_fin: e.target.value })} /></div>

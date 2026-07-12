@@ -735,43 +735,103 @@ tr:last-child td { border-bottom: none; }
 }
 
 /* ─── Responsive ────────────────────────────────────────────── */
+/* Conteneur des liens de navigation (colonne sur desktop, barre basse sur mobile) */
+.sidebar .nav-links { display: flex; flex-direction: column; }
+
+/* Grilles utilitaires supplementaires */
+.grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+/* Rangee de stats auto-adaptative : s'ajuste seule a la largeur d'ecran */
+.stat-row {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+/* ═══ MOBILE (≤ 760px) : barre du haut + navigation en bas d'ecran ═══ */
 @media (max-width: 760px) {
   .app { flex-direction: column; }
 
+  /* Barre du haut : logo + profil, compacte et collante */
   .sidebar {
     width: auto;
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 60;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-
-  .sidebar .brand {
-    width: 100%;
-    margin-bottom: 0;
-    border-bottom: none;
-  }
-
-  .sidebar a {
-    padding: .5rem .8rem;
-    font-size: .85rem;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-  }
-
-  .sidebar a.active {
-    border-left-color: transparent;
-    border-bottom-color: var(--accent);
-  }
-
-  .sidebar .spacer { display: none; }
-  .sidebar .who { width: 100%; }
-
-  .main { padding: 1rem; }
-  .grid.cols-2 { grid-template-columns: 1fr; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .sidebar .brand { padding: .55rem .9rem; border-bottom: none; font-size: 1rem; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 8px; }
+  .sidebar .brand small { display: none; }
   .nav-label { display: none; }
+  .sidebar .spacer { display: none; }
+  .sidebar .who { border-top: none; padding: .45rem .75rem; gap: .45rem; }
+  .who-txt { font-size: .78rem; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who-txt small { display: none; }
+
+  /* Navigation en bas d'ecran, type application mobile */
+  .sidebar .nav-links {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 60;
+    flex-direction: row;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.07);
+    padding: .3rem .3rem calc(.35rem + env(safe-area-inset-bottom));
+    overflow-x: auto;
+  }
+  .sidebar .nav-links a {
+    flex: 1 1 0;
+    min-width: 56px;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    gap: .18rem;
+    padding: .4rem .2rem;
+    border-left: none;
+    border-radius: 10px;
+    font-size: .6rem;
+  }
+  .sidebar .nav-links a .nav-txt {
+    font-size: .6rem;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .sidebar .nav-links a.active { background: var(--accent-glow); border-left-color: transparent; }
+
+  /* Contenu : marge basse pour ne pas passer sous la barre de navigation */
+  .main { padding: 1rem .9rem calc(86px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 1.35rem; }
+  .hello { margin-bottom: 1rem; }
+  .hello .btn-lg { padding: .5rem .95rem; font-size: .85rem; }
+
+  /* Grilles : tout passe en 1-2 colonnes */
+  .grid.cols-2 { grid-template-columns: 1fr; }
+  .grid.cols-4 { grid-template-columns: 1fr 1fr; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: .7rem; }
+  .stat-row { gap: .7rem; }
+  .stat-card { padding: .8rem .85rem; gap: .6rem; }
+  .stat-icon { width: 36px; height: 36px; }
+  .stat-value { font-size: 1.25rem; }
+
+  /* Cartes + tableaux : defilement horizontal plutot que debordement */
+  .card { padding: 1rem; overflow-x: auto; }
+  .card table { min-width: 560px; }
+
+  /* Fiche patient */
   .patient-hero { flex-direction: column; }
   .hero-side { border-left: none; padding-left: 0; border-top: 1px solid var(--border-subtle); padding-top: .85rem; min-width: 0; max-width: none; }
+
+  /* Confort tactile : 16px dans les champs = pas de zoom auto sur iOS */
+  input, select, textarea { font-size: 16px; }
+  .searchbar { max-width: none; }
+  .searchbar input { min-width: 0; }
 }
