@@ -9,7 +9,7 @@ import db from '../db.js';
 //   Aucune donnee n'est supprimee ; tout est restaure a la reactivation.
 // - Paiement (facture marquee payee par l'admin) : echeance prolongee de 30j.
 
-const MONTANT_DEFAUT = 49;   // EUR / mois (modifiable facture par facture)
+const MONTANT_DEFAUT = 30;   // EUR / mois (modifiable facture par facture)
 const RAPPEL_JOURS = 4;      // rappel a J-4
 
 const today = () => new Date().toISOString().slice(0, 10);

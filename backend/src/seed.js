@@ -172,10 +172,10 @@ const insertInvoice = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, 'EUR', ?, ?)
 `);
 // Dr Amina (a jour) : 3 factures payees + 1 a venir impayee
-insertInvoice.run(doctorId, 'FAC-2026-0001', '2026-04-01', '2026-04-01', '2026-04-30', 49, 'payee', '2026-04-03');
-insertInvoice.run(doctorId, 'FAC-2026-0002', '2026-05-01', '2026-05-01', '2026-05-31', 49, 'payee', '2026-05-02');
-insertInvoice.run(doctorId, 'FAC-2026-0003', '2026-06-01', '2026-06-01', '2026-06-30', 49, 'payee', '2026-06-04');
-insertInvoice.run(doctorId, 'FAC-2026-0004', '2026-07-01', '2026-07-01', '2026-07-31', 49, 'impayee', null);
+insertInvoice.run(doctorId, 'FAC-2026-0001', '2026-04-01', '2026-04-01', '2026-04-30', 30, 'payee', '2026-04-03');
+insertInvoice.run(doctorId, 'FAC-2026-0002', '2026-05-01', '2026-05-01', '2026-05-31', 30, 'payee', '2026-05-02');
+insertInvoice.run(doctorId, 'FAC-2026-0003', '2026-06-01', '2026-06-01', '2026-06-30', 30, 'payee', '2026-06-04');
+insertInvoice.run(doctorId, 'FAC-2026-0004', '2026-07-01', '2026-07-01', '2026-07-31', 30, 'impayee', null);
 // Dr Omar (impaye) : facture du mois en cours non reglee
 insertInvoice.run(doctor2Id, 'FAC-2026-0005', '2026-06-01', '2026-06-01', '2026-06-30', 39, 'impayee', null);
 

@@ -163,7 +163,7 @@ function Invoices({ doctorId, onChange }) {
   const [creating, setCreating] = useState(false);
   // date de paiement choisie par facture (clé = id facture)
   const [payDates, setPayDates] = useState({});
-  const blank = { date_emission: todayISO(), periode_debut: '', periode_fin: '', montant: '49', devise: 'EUR' };
+  const blank = { date_emission: todayISO(), periode_debut: '', periode_fin: '', montant: '30', devise: 'EUR' };
   const [form, setForm] = useState(blank);
   const [error, setError] = useState('');
 
