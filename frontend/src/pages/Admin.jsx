@@ -1,6 +1,6 @@
 import { useEffect, useState, Fragment } from 'react';
 import { api } from '../api.js';
-import { formatDate } from '../utils.js';
+import { formatDate, calcAge, lines } from '../utils.js';
 
 function lastSeenLabel(iso) {
   if (!iso) return { txt: 'Jamais connecté', online: false };
@@ -15,11 +15,12 @@ function lastSeenLabel(iso) {
 function money(v, devise = 'EUR') {
   return (Number(v) || 0).toFixed(2).replace('.', ',') + (devise === 'EUR' ? ' €' : ' ' + devise);
 }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 export default function Admin() {
   const [doctors, setDoctors] = useState([]);
   const [stats, setStats] = useState(null);
-  const [openId, setOpenId] = useState(null);
+  const [panel, setPanel] = useState({ id: null, type: null }); // type: 'invoices' | 'patients'
 
   function load() {
     api.get('/admin/doctors').then(setDoctors);
@@ -31,6 +32,9 @@ export default function Admin() {
     return () => clearInterval(t);
   }, []);
 
+  function toggle(id, type) {
+    setPanel((p) => (p.id === id && p.type === type ? { id: null, type: null } : { id, type }));
+  }
   async function setAccess(d, active) { await api.patch(`/admin/doctors/${d.doctor_id}`, { active }); load(); }
   async function setStatut(d, statut) {
     if (statut === 'refuse' && !confirm(`Refuser l'inscription de ${d.nom} ?`)) return;
@@ -47,16 +51,18 @@ export default function Admin() {
         <h1>Administration</h1>
         <button className="btn-sm" onClick={load}>↻ Rafraîchir</button>
       </div>
-      <p className="muted">Suivi des médecins, abonnements, facturation et accès à la plateforme.</p>
+      <p className="muted">Vue d'ensemble de la plateforme : médecins, patients, activité et facturation.</p>
 
       {stats && (
         <div className="stat-row">
           <Stat label="Médecins" value={stats.totalDoctors} />
-          <Stat label="En attente" value={stats.enAttente ?? 0} accent={stats.enAttente ? 'warn' : undefined} />
           <Stat label="En ligne" value={stats.enLigne} accent="ok" />
-          <Stat label="Accès actifs" value={stats.actifs} />
-          <Stat label="Abonnements payés" value={`${stats.payes}/${stats.totalDoctors}`} />
+          <Stat label="En attente" value={stats.enAttente ?? 0} accent={stats.enAttente ? 'warn' : undefined} />
           <Stat label="Patients (total)" value={stats.totalPatients} />
+          <Stat label="Consultations" value={stats.totalConsultations} />
+          <Stat label="RDV à venir" value={stats.rdvAVenir} />
+          <Stat label="Revenu encaissé" value={money(stats.revenuEncaisse)} accent="ok" />
+          <Stat label="En attente de paiement" value={money(stats.revenuEnAttente)} accent={stats.revenuEnAttente ? 'warn' : undefined} />
         </div>
       )}
 
@@ -91,28 +97,34 @@ export default function Admin() {
         <table>
           <thead>
             <tr>
-              <th>Médecin</th><th>Patients</th><th>Abonnement</th><th>Dernier paiement</th><th>Prochaine facture</th><th>Activité</th><th>Accès</th><th>Actions</th>
+              <th>Médecin</th><th>Patients</th><th>Consult.</th><th>RDV à venir</th><th>Revenu</th>
+              <th>Abonnement</th><th>Prochaine facture</th><th>Activité</th><th>Accès</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {visibleDoctors.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: '1rem' }}>Aucun médecin validé.</td></tr>}
+            {visibleDoctors.length === 0 && <tr><td colSpan={10} className="muted" style={{ padding: '1rem' }}>Aucun médecin validé.</td></tr>}
             {visibleDoctors.map((d) => {
               const seen = lastSeenLabel(d.last_seen);
               const paye = d.abonnement_statut === 'paye';
-              const open = openId === d.doctor_id;
               const refuse = d.statut === 'refuse';
+              const isOpen = panel.id === d.doctor_id;
               return (
                 <Fragment key={d.doctor_id}>
                   <tr>
-                    <td><strong>{d.nom}</strong><br /><span className="pill-info">{d.email}</span></td>
-                    <td><strong>{d.patients}</strong></td>
+                    <td><strong>{d.nom}</strong><br /><span className="pill-info">{d.specialite || d.email}</span></td>
+                    <td>
+                      <strong>{d.patients}</strong>
+                      {d.patients_avec_acces > 0 && <><br /><span className="pill-info">{d.patients_avec_acces} en ligne</span></>}
+                    </td>
+                    <td>{d.consultations}</td>
+                    <td>{d.rdv_a_venir || <span className="muted">0</span>}</td>
+                    <td><strong>{money(d.revenu)}</strong></td>
                     <td>
                       <span className={`badge ${paye ? 'ok' : ''}`} style={paye ? {} : { background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
                         {paye ? 'Payé' : 'Impayé'}
                       </span>
                       {d.echeance && <><br /><span className="pill-info">échéance {formatDate(d.echeance)}</span></>}
                     </td>
-                    <td>{d.dernier_paiement ? formatDate(d.dernier_paiement) : <span className="muted">—</span>}</td>
                     <td>
                       {d.prochaine_facture
                         ? <span>{formatDate(d.prochaine_facture.date_emission)}<br /><span className="pill-info">{money(d.prochaine_facture.montant, d.prochaine_facture.devise)}</span></span>
@@ -126,7 +138,8 @@ export default function Admin() {
                     </td>
                     <td>
                       <div className="row" style={{ gap: '.35rem' }}>
-                        <button className="btn-sm" onClick={() => setOpenId(open ? null : d.doctor_id)}>{open ? 'Masquer' : 'Factures'}</button>
+                        <button className={`btn-sm ${isOpen && panel.type === 'patients' ? 'btn-primary' : ''}`} onClick={() => toggle(d.doctor_id, 'patients')}>Patients</button>
+                        <button className={`btn-sm ${isOpen && panel.type === 'invoices' ? 'btn-primary' : ''}`} onClick={() => toggle(d.doctor_id, 'invoices')}>Factures</button>
                         {refuse
                           ? <button className="btn-sm btn-primary" onClick={() => setStatut(d, 'valide')}>Valider</button>
                           : d.active
@@ -135,10 +148,12 @@ export default function Admin() {
                       </div>
                     </td>
                   </tr>
-                  {open && (
+                  {isOpen && (
                     <tr>
-                      <td colSpan={8} style={{ background: 'var(--surface-2)' }}>
-                        <Invoices doctorId={d.doctor_id} onChange={load} />
+                      <td colSpan={10} style={{ background: 'var(--surface-2)' }}>
+                        {panel.type === 'patients'
+                          ? <PatientsPanel doctor={d} />
+                          : <Invoices doctorId={d.doctor_id} onChange={load} />}
                       </td>
                     </tr>
                   )}
@@ -149,6 +164,8 @@ export default function Admin() {
         </table>
       </div>
 
+      <ActivityFeed />
+
       <p className="muted" style={{ fontSize: '.82rem' }}>
         Un médecin désactivé ne peut plus se connecter ni accéder à ses données tant que son accès n'est pas rétabli.
       </p>
@@ -156,12 +173,78 @@ export default function Admin() {
   );
 }
 
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+// Liste des patients (clients) d'un medecin
+function PatientsPanel({ doctor }) {
+  const [list, setList] = useState(null);
+  useEffect(() => { api.get(`/admin/doctors/${doctor.doctor_id}/patients`).then(setList); }, [doctor.doctor_id]);
+
+  return (
+    <div style={{ padding: '.25rem 0' }}>
+      <strong style={{ fontSize: '.85rem' }}>Patients de {doctor.nom} ({doctor.patients})</strong>
+      {!list ? <p className="muted">Chargement…</p> : list.length === 0 ? <p className="muted">Aucun patient.</p> : (
+        <table style={{ margin: '.4rem 0 0' }}>
+          <thead><tr><th>Patient</th><th>Âge</th><th>Consult.</th><th>Dernière consult.</th><th>Allergies</th><th>Espace patient</th></tr></thead>
+          <tbody>
+            {list.map((p) => (
+              <tr key={p.id}>
+                <td><strong>{p.prenom} {p.nom}</strong></td>
+                <td>{calcAge(p.date_naissance) != null ? `${calcAge(p.date_naissance)} ans` : '—'}</td>
+                <td>{p.nb_consultations}</td>
+                <td>{p.derniere_consultation ? formatDate(p.derniere_consultation) : <span className="muted">Jamais</span>}</td>
+                <td>{p.allergies ? <span className="badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>⚠ {lines(p.allergies).length}</span> : <span className="muted">—</span>}</td>
+                <td>{p.a_un_acces ? <span className="badge ok">Actif</span> : <span className="badge muted">Aucun</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+const ACTION_LABEL = {
+  consultation_fiche: 'a consulté une fiche', creation_patient: 'a créé un patient',
+  modif_patient: 'a modifié un patient', suppression_patient: 'a supprimé un patient',
+  creation_prescription: 'a prescrit', creation_rdv: 'a créé un RDV', modif_rdv: 'a modifié un RDV',
+  ajout_document: 'a ajouté un document', consultation_document: 'a consulté un document',
+  export_dossier: 'a exporté un dossier', creation_acces_patient: 'a donné un accès patient',
+  reset_mdp_patient: 'a réinitialisé un mot de passe', revocation_acces_patient: 'a révoqué un accès',
+};
+function activityWhen(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.replace(' ', 'T') + 'Z');
+  return isNaN(d) ? iso : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// Flux d'activite recente de toute la plateforme
+function ActivityFeed() {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    const load = () => api.get('/admin/activity?limit=25').then(setRows);
+    load(); const t = setInterval(load, 20000); return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="card">
+      <h2>Activité récente de la plateforme</h2>
+      {!rows ? <p className="muted">Chargement…</p> : rows.length === 0 ? <p className="muted">Aucune activité enregistrée.</p> : (
+        <ul className="timeline">
+          {rows.map((r, i) => (
+            <li key={i} style={{ cursor: 'default' }}>
+              <span className="tl-body">
+                <span><strong>{r.user_nom || 'Utilisateur'}</strong> {ACTION_LABEL[r.action] || r.action} <span className="muted">— {r.cible || ''}</span></span>
+                <span className="muted" style={{ fontSize: '.76rem' }}>{r.cabinet ? `${r.cabinet} · ` : ''}{activityWhen(r.date)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function Invoices({ doctorId, onChange }) {
   const [list, setList] = useState(null);
   const [creating, setCreating] = useState(false);
-  // date de paiement choisie par facture (clé = id facture)
   const [payDates, setPayDates] = useState({});
   const blank = { date_emission: todayISO(), periode_debut: '', periode_fin: '', montant: '30', devise: 'EUR' };
   const [form, setForm] = useState(blank);
@@ -169,7 +252,6 @@ function Invoices({ doctorId, onChange }) {
 
   function load() { api.get(`/admin/doctors/${doctorId}/invoices`).then(setList); }
   useEffect(() => { load(); }, [doctorId]);
-
   function refresh() { load(); onChange && onChange(); }
 
   async function create(e) {
@@ -253,7 +335,7 @@ function Stat({ label, value, accent }) {
   const color = accent === 'ok' ? 'var(--ok)' : accent === 'warn' ? 'var(--danger)' : 'var(--accent)';
   return (
     <div className="card" style={{ margin: 0, padding: '1rem 1.1rem' }}>
-      <div style={{ fontSize: '1.7rem', fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: '1.5rem', fontWeight: 700, color, lineHeight: 1.15 }}>{value}</div>
       <div className="muted" style={{ fontSize: '.78rem' }}>{label}</div>
     </div>
   );

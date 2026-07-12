@@ -47,7 +47,8 @@ router.get('/doctors', (req, res) => {
     ORDER BY u.nom
   `).all();
 
-  // Enrichit avec dernier paiement et prochaine facture (premiere facture impayee)
+  // Enrichit chaque medecin avec ses indicateurs d'activite et de facturation
+  const nowIso = new Date().toISOString();
   for (const r of rows) {
     r.dernier_paiement = db.prepare(
       "SELECT MAX(date_paiement) m FROM invoices WHERE doctor_id = ? AND statut = 'payee'"
@@ -55,7 +56,48 @@ router.get('/doctors', (req, res) => {
     r.prochaine_facture = db.prepare(
       "SELECT numero, date_emission, montant, devise FROM invoices WHERE doctor_id = ? AND statut = 'impayee' ORDER BY date_emission LIMIT 1"
     ).get(r.doctor_id) || null;
+    r.consultations = db.prepare(
+      'SELECT COUNT(*) c FROM consultations WHERE doctor_id = ?'
+    ).get(r.doctor_id).c;
+    r.rdv_a_venir = db.prepare(
+      "SELECT COUNT(*) c FROM appointments WHERE doctor_id = ? AND statut = 'confirme' AND date >= ?"
+    ).get(r.doctor_id, nowIso).c;
+    r.patients_avec_acces = db.prepare(
+      'SELECT COUNT(*) c FROM patients WHERE doctor_id = ? AND user_id IS NOT NULL'
+    ).get(r.doctor_id).c;
+    r.revenu = db.prepare(
+      "SELECT COALESCE(SUM(montant), 0) s FROM invoices WHERE doctor_id = ? AND statut = 'payee'"
+    ).get(r.doctor_id).s;
   }
+  res.json(rows);
+});
+
+// Liste des patients (clients) d'un medecin, avec leur activite
+router.get('/doctors/:id/patients', (req, res) => {
+  const exists = db.prepare('SELECT id FROM doctors WHERE id = ?').get(req.params.id);
+  if (!exists) return res.status(404).json({ error: 'Medecin introuvable' });
+  const rows = db.prepare(`
+    SELECT p.id, p.nom, p.prenom, p.date_naissance, p.telephone, p.allergies, p.maladies_chroniques,
+           (p.user_id IS NOT NULL) AS a_un_acces,
+           (SELECT COUNT(*) FROM consultations c WHERE c.patient_id = p.id) AS nb_consultations,
+           (SELECT MAX(date) FROM consultations c WHERE c.patient_id = p.id) AS derniere_consultation
+    FROM patients p WHERE p.doctor_id = ? ORDER BY p.nom, p.prenom
+  `).all(req.params.id);
+  res.json(rows);
+});
+
+// Flux d'activite recente sur toute la plateforme (journal d'audit global)
+router.get('/activity', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 25, 100);
+  const rows = db.prepare(`
+    SELECT a.action, a.cible, a.date, a.role, u.nom AS user_nom, du.nom AS cabinet
+    FROM audit_log a
+    LEFT JOIN users u ON u.id = a.user_id
+    LEFT JOIN doctors d ON d.id = a.doctor_id
+    LEFT JOIN users du ON du.id = d.user_id
+    ORDER BY a.date DESC, a.id DESC
+    LIMIT ?
+  `).all(limit);
   res.json(rows);
 });
 
@@ -162,7 +204,16 @@ router.get('/stats', (req, res) => {
     "SELECT COUNT(*) c FROM users WHERE role='medecin' AND last_seen >= datetime('now','-5 minutes')"
   ).get().c;
   const enAttente = db.prepare("SELECT COUNT(*) c FROM doctors WHERE statut='en_attente'").get().c;
-  res.json({ totalDoctors, actifs, payes, totalPatients, enLigne, enAttente });
+  const totalConsultations = db.prepare('SELECT COUNT(*) c FROM consultations').get().c;
+  const rdvAVenir = db.prepare(
+    "SELECT COUNT(*) c FROM appointments WHERE statut='confirme' AND date >= ?"
+  ).get(new Date().toISOString()).c;
+  const revenuEncaisse = db.prepare("SELECT COALESCE(SUM(montant),0) s FROM invoices WHERE statut='payee'").get().s;
+  const revenuEnAttente = db.prepare("SELECT COALESCE(SUM(montant),0) s FROM invoices WHERE statut='impayee'").get().s;
+  res.json({
+    totalDoctors, actifs, payes, totalPatients, enLigne, enAttente,
+    totalConsultations, rdvAVenir, revenuEncaisse, revenuEnAttente,
+  });
 });
 
 // Met a jour l'acces et/ou le statut de paiement d'un medecin
