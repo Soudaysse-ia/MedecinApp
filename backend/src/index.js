@@ -31,7 +31,7 @@ const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '15mb' })); // marge pour l'upload de documents (base64)
 
-app.get('/api/health', (req, res) => res.json({ ok: true, demo: true }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
@@ -77,5 +77,4 @@ setInterval(enforceOverdueAccess, 6 * 3600 * 1000);
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`API medecin-app demarree sur http://localhost:${PORT}`);
-  console.log('PROTOTYPE - donnees fictives uniquement (aucune donnee de sante reelle).');
 });
