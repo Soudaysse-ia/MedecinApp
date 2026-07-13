@@ -748,6 +748,26 @@ tr:last-child td { border-bottom: none; }
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+/* ─── Fiche detaillee d'un medecin (admin) ──────────────────── */
+.ov-grid { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 1rem; align-items: start; }
+.ov-id { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .85rem 1rem; }
+.ov-dl { margin: .6rem 0 0; display: flex; flex-direction: column; gap: .4rem; }
+.ov-dl > div { display: grid; grid-template-columns: 90px 1fr; gap: .5rem; }
+.ov-dl dt { color: var(--text-muted); font-size: .78rem; }
+.ov-dl dd { margin: 0; font-size: .84rem; }
+
+.ov-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+.ov-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .7rem .85rem; }
+.ov-kpi-val { font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+.ov-kpi-lbl { font-size: .8rem; color: var(--text-dim); }
+
+.minibars { display: flex; gap: .5rem; align-items: flex-end; height: 120px; margin-top: .5rem; padding: .5rem .25rem 0; }
+.minibar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .25rem; height: 100%; }
+.minibar-val { font-size: .72rem; font-weight: 700; color: var(--accent); }
+.minibar-track { flex: 1; width: 100%; max-width: 44px; display: flex; align-items: flex-end; }
+.minibar-fill { width: 100%; min-height: 3px; background: linear-gradient(180deg, var(--accent) 0%, #4E8FD6 100%); border-radius: 4px 4px 0 0; transition: height .3s ease; }
+.minibar-lbl { font-size: .72rem; color: var(--text-muted); text-transform: capitalize; }
+
 /* ═══ MOBILE (≤ 760px) : barre du haut + navigation en bas d'ecran ═══ */
 @media (max-width: 760px) {
   .app { flex-direction: column; }
@@ -829,6 +849,8 @@ tr:last-child td { border-bottom: none; }
   /* Fiche patient */
   .patient-hero { flex-direction: column; }
   .hero-side { border-left: none; padding-left: 0; border-top: 1px solid var(--border-subtle); padding-top: .85rem; min-width: 0; max-width: none; }
+  .ov-grid { grid-template-columns: 1fr; }
+  .ov-kpis { grid-template-columns: repeat(2, 1fr); }
 
   /* Confort tactile : 16px dans les champs = pas de zoom auto sur iOS */
   input, select, textarea { font-size: 16px; }

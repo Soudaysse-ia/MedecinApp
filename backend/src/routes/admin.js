@@ -72,6 +72,53 @@ router.get('/doctors', (req, res) => {
   res.json(rows);
 });
 
+// Vue detaillee d'un medecin : identite, abonnement, indicateurs, tendance, activite
+router.get('/doctors/:id/overview', (req, res) => {
+  const doc = db.prepare(`
+    SELECT d.id AS doctor_id, d.specialite, d.cabinet_nom, d.cabinet_adresse, d.cabinet_tel,
+           d.abonnement_statut, d.abonnement_debut, d.echeance, d.statut,
+           u.nom, u.email, u.active, u.last_seen, u.created_at
+    FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id = ?
+  `).get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Medecin introuvable' });
+  const id = doc.doctor_id;
+  const one = (sql, ...p) => db.prepare(sql).get(...p).c;
+
+  const nowIso = new Date().toISOString();
+  const kpis = {
+    patients: one('SELECT COUNT(*) c FROM patients WHERE doctor_id = ?', id),
+    patients_avec_acces: one('SELECT COUNT(*) c FROM patients WHERE doctor_id = ? AND user_id IS NOT NULL', id),
+    consultations: one('SELECT COUNT(*) c FROM consultations WHERE doctor_id = ?', id),
+    consultations_30j: one("SELECT COUNT(*) c FROM consultations WHERE doctor_id = ? AND date >= date('now','-30 days')", id),
+    prescriptions: one('SELECT COUNT(*) c FROM prescriptions pr JOIN patients p ON p.id = pr.patient_id WHERE p.doctor_id = ?', id),
+    prescriptions_en_cours: one("SELECT COUNT(*) c FROM prescriptions pr JOIN patients p ON p.id = pr.patient_id WHERE p.doctor_id = ? AND pr.statut = 'en_cours'", id),
+    rdv_a_venir: one("SELECT COUNT(*) c FROM appointments WHERE doctor_id = ? AND statut = 'confirme' AND date >= ?", id, nowIso),
+    demandes_rdv: one("SELECT COUNT(*) c FROM appointments WHERE doctor_id = ? AND statut = 'demande'", id),
+    documents: one('SELECT COUNT(*) c FROM documents doc JOIN patients p ON p.id = doc.patient_id WHERE p.doctor_id = ?', id),
+    factures_payees: one("SELECT COUNT(*) c FROM invoices WHERE doctor_id = ? AND statut = 'payee'", id),
+    factures_impayees: one("SELECT COUNT(*) c FROM invoices WHERE doctor_id = ? AND statut = 'impayee'", id),
+    revenu: db.prepare("SELECT COALESCE(SUM(montant),0) s FROM invoices WHERE doctor_id = ? AND statut = 'payee'").get(id).s,
+  };
+
+  // Consultations par mois sur les 6 derniers mois (tendance d'activite)
+  const parMois = db.prepare(`
+    SELECT substr(date, 1, 7) AS mois, COUNT(*) AS c
+    FROM consultations
+    WHERE doctor_id = ? AND date >= date('now', '-5 months', 'start of month')
+    GROUP BY mois ORDER BY mois
+  `).all(id);
+
+  // Dernieres actions de ce cabinet (journal d'audit filtre)
+  const activite = db.prepare(`
+    SELECT a.action, a.cible, a.date, u.nom AS user_nom
+    FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.doctor_id = ?
+    ORDER BY a.date DESC, a.id DESC LIMIT 10
+  `).all(id);
+
+  res.json({ doctor: doc, kpis, consultations_par_mois: parMois, activite });
+});
+
 // Liste des patients (clients) d'un medecin, avec leur activite
 router.get('/doctors/:id/patients', (req, res) => {
   const exists = db.prepare('SELECT id FROM doctors WHERE id = ?').get(req.params.id);

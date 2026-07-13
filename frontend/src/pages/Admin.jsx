@@ -138,6 +138,7 @@ export default function Admin() {
                     </td>
                     <td>
                       <div className="row" style={{ gap: '.35rem' }}>
+                        <button className={`btn-sm ${isOpen && panel.type === 'overview' ? 'btn-primary' : ''}`} onClick={() => toggle(d.doctor_id, 'overview')}>Détails</button>
                         <button className={`btn-sm ${isOpen && panel.type === 'patients' ? 'btn-primary' : ''}`} onClick={() => toggle(d.doctor_id, 'patients')}>Patients</button>
                         <button className={`btn-sm ${isOpen && panel.type === 'invoices' ? 'btn-primary' : ''}`} onClick={() => toggle(d.doctor_id, 'invoices')}>Factures</button>
                         {refuse
@@ -151,9 +152,11 @@ export default function Admin() {
                   {isOpen && (
                     <tr>
                       <td colSpan={10} style={{ background: 'var(--surface-2)' }}>
-                        {panel.type === 'patients'
-                          ? <PatientsPanel doctor={d} />
-                          : <Invoices doctorId={d.doctor_id} onChange={load} />}
+                        {panel.type === 'overview'
+                          ? <DoctorOverview doctorId={d.doctor_id} />
+                          : panel.type === 'patients'
+                            ? <PatientsPanel doctor={d} />
+                            : <Invoices doctorId={d.doctor_id} onChange={load} />}
                       </td>
                     </tr>
                   )}
@@ -169,6 +172,100 @@ export default function Admin() {
       <p className="muted" style={{ fontSize: '.82rem' }}>
         Un médecin désactivé ne peut plus se connecter ni accéder à ses données tant que son accès n'est pas rétabli.
       </p>
+    </div>
+  );
+}
+
+// Fiche detaillee d'un medecin
+function DoctorOverview({ doctorId }) {
+  const [data, setData] = useState(null);
+  useEffect(() => { api.get(`/admin/doctors/${doctorId}/overview`).then(setData).catch(() => setData(false)); }, [doctorId]);
+
+  if (data === false) return <p className="muted">Impossible de charger la fiche.</p>;
+  if (!data) return <p className="muted">Chargement…</p>;
+  const { doctor: d, kpis, consultations_par_mois, activite } = data;
+
+  return (
+    <div style={{ padding: '.4rem 0' }}>
+      <div className="ov-grid">
+        {/* Identite + abonnement */}
+        <div className="ov-id">
+          <strong style={{ fontSize: '.95rem' }}>{d.nom}</strong>
+          <div className="pill-info">{d.specialite || 'Spécialité non renseignée'}</div>
+          <dl className="ov-dl">
+            <div><dt>Cabinet</dt><dd>{d.cabinet_nom || '—'}</dd></div>
+            <div><dt>Adresse</dt><dd>{d.cabinet_adresse || '—'}</dd></div>
+            <div><dt>Téléphone</dt><dd>{d.cabinet_tel || '—'}</dd></div>
+            <div><dt>Email</dt><dd>{d.email}</dd></div>
+            <div><dt>Inscrit le</dt><dd>{d.created_at ? formatDate(d.created_at) : '—'}</dd></div>
+            <div><dt>Abonnement</dt><dd>depuis {d.abonnement_debut ? formatDate(d.abonnement_debut) : '—'}, échéance {d.echeance ? formatDate(d.echeance) : '—'}</dd></div>
+          </dl>
+        </div>
+
+        {/* Indicateurs cles */}
+        <div className="ov-kpis">
+          <Kpi value={kpis.patients} label="Patients" sub={`${kpis.patients_avec_acces} avec accès`} />
+          <Kpi value={kpis.consultations} label="Consultations" sub={`${kpis.consultations_30j} sur 30 j`} />
+          <Kpi value={kpis.prescriptions} label="Prescriptions" sub={`${kpis.prescriptions_en_cours} en cours`} />
+          <Kpi value={kpis.rdv_a_venir} label="RDV à venir" sub={kpis.demandes_rdv ? `${kpis.demandes_rdv} demande(s)` : 'aucune demande'} />
+          <Kpi value={kpis.documents} label="Documents" />
+          <Kpi value={money(kpis.revenu)} label="Revenu encaissé" accent="ok" sub={`${kpis.factures_impayees} impayée(s)`} />
+        </div>
+      </div>
+
+      {/* Tendance : consultations par mois */}
+      <div style={{ marginTop: '1rem' }}>
+        <strong style={{ fontSize: '.82rem' }}>Consultations par mois</strong>
+        <MiniBars data={consultations_par_mois} />
+      </div>
+
+      {/* Activite recente du cabinet */}
+      <div style={{ marginTop: '1rem' }}>
+        <strong style={{ fontSize: '.82rem' }}>Dernières actions</strong>
+        {activite.length === 0 ? <p className="muted" style={{ fontSize: '.85rem' }}>Aucune action enregistrée.</p> : (
+          <ul className="timeline" style={{ marginTop: '.3rem' }}>
+            {activite.map((r, i) => (
+              <li key={i} style={{ cursor: 'default', padding: '.35rem .5rem' }}>
+                <span className="tl-body">
+                  <span style={{ fontSize: '.86rem' }}>{ACTION_LABEL[r.action] || r.action} <span className="muted">— {r.cible || ''}</span></span>
+                  <span className="muted" style={{ fontSize: '.74rem' }}>{activityWhen(r.date)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ value, label, sub, accent }) {
+  return (
+    <div className="ov-kpi">
+      <div className="ov-kpi-val" style={{ color: accent === 'ok' ? 'var(--ok)' : 'var(--accent)' }}>{value}</div>
+      <div className="ov-kpi-lbl">{label}</div>
+      {sub && <div className="pill-info">{sub}</div>}
+    </div>
+  );
+}
+
+// Petit histogramme (consultations par mois), sans dependance
+function MiniBars({ data }) {
+  if (!data || data.length === 0) return <p className="muted" style={{ fontSize: '.85rem' }}>Aucune consultation.</p>;
+  const max = Math.max(...data.map((d) => d.c), 1);
+  const moisLabel = (m) => {
+    const [y, mm] = m.split('-');
+    return new Date(Number(y), Number(mm) - 1, 1).toLocaleDateString('fr-FR', { month: 'short' });
+  };
+  return (
+    <div className="minibars">
+      {data.map((d) => (
+        <div className="minibar" key={d.mois}>
+          <span className="minibar-val">{d.c}</span>
+          <div className="minibar-track"><div className="minibar-fill" style={{ height: `${(d.c / max) * 100}%` }} /></div>
+          <span className="minibar-lbl">{moisLabel(d.mois)}</span>
+        </div>
+      ))}
     </div>
   );
 }
